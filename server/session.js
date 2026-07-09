@@ -7,7 +7,7 @@
 
 import { randomUUID } from "node:crypto";
 import {
-  CHAPTERS, INTRECCI, BIVI, makeState, applyChoice, optByTag, attractor, climaxVerdict
+  CHAPTERS, INTRECCI, BIVI, START_DATE, makeState, applyChoice, optByTag, attractor, climaxVerdict
 } from "./engine.js";
 
 export class Session {
@@ -143,8 +143,11 @@ export class Session {
       bivi: BIVI,
       connected: this.connectedCount(),
       participants: [...this.participants.keys()],
+      startDate: START_DATE,
+      endDate: CHAPTERS[CHAPTERS.length - 1].date,
+      prevDate: this.chapterIndex > 0 ? CHAPTERS[this.chapterIndex - 1].date : START_DATE,
       chapter: ch ? {
-        year: ch.year, title: ch.title,
+        year: ch.year, title: ch.title, date: ch.date,
         beats: ch.beats || null,
         climax: !!ch.climax,
         verdict: ch.climax ? climaxVerdict(this.collective.delega) : null

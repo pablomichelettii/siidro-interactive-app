@@ -134,6 +134,17 @@ export const INTRECCI = [
 
 export const BIVI = CHAPTERS.filter(c => !c.climax).length;
 
+// Date del viaggio nei "5000 giorni". Giorno 0 = inizio del racconto.
+// Modificabili liberamente: guidano solo il contatore-interludio tra i capitoli.
+export const START_DATE = "2026-10-21";
+const DATES = {
+  clima: "2027-04-07", deepfake: "2028-09-16", memoria: "2030-01-27", arte: "2030-11-02",
+  lavoro: "2031-05-22", medicina: "2032-11-08", scuola: "2033-09-14", giudice: "2034-03-27",
+  dati: "2035-07-19", prompt: "2036-10-05", lucca: "2037-06-24", oracolo: "2039-11-09",
+  climax: "2040-06-29"
+};
+CHAPTERS.forEach(c => { c.date = DATES[c.id]; });
+
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export function makeState() {

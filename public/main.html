@@ -8,6 +8,27 @@
 <style>
   #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
   .layout { position: relative; z-index: 3; min-height: 100vh; display: flex; }
+
+  /* interludio "giorni nel futuro": timeline orizzontale che scorre */
+  #interstitial { position: fixed; inset: 0; z-index: 7; display: none; flex-direction: column; align-items: center; justify-content: center; gap: clamp(1.5rem, 5vh, 4rem);
+    background-color: var(--bg-slate); background-image: radial-gradient(circle at 50% 38%, var(--ochre-a) 0%, var(--slate-a) 58%, var(--bg-slate) 100%); }
+  #iReadout { text-align: center; will-change: transform, opacity; }
+  #iDays { font-family: var(--font-display); font-weight: 800; color: var(--ochre); line-height: 0.9; letter-spacing: 0.02em; font-size: clamp(3.5rem, 13vw, 11rem); }
+  #iDaysLabel { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted); font-size: clamp(0.7rem, 1.4vw, 1rem); margin-top: 0.5em; }
+  #iDate { font-family: var(--font-serif); color: var(--white); font-size: clamp(1.3rem, 3.4vw, 2.4rem); margin-top: 0.4em; }
+  #iTimeline { position: relative; width: 100%; height: 130px; overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
+  #iTrack { position: absolute; left: 50%; top: 50%; height: 0; will-change: transform; }
+  #iTrack .tick { position: absolute; top: 0; width: 1px; height: 16px; background: var(--wire); transform: translate(-50%, -50%); }
+  #iTrack .tick.year { height: 40px; width: 2px; background: rgba(255,255,255,0.5); }
+  #iTrack .tick .lab { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.12em; color: var(--muted); }
+  #iPlayhead { position: absolute; left: 50%; top: 50%; width: 2px; height: 64px; background: var(--ochre); transform: translate(-50%, -50%); box-shadow: 0 0 16px var(--ochre); }
+  #iPlayhead::before { content: ""; position: absolute; left: 50%; top: -8px; width: 10px; height: 10px; border-radius: 50%; background: var(--ochre); transform: translateX(-50%); box-shadow: 0 0 12px var(--ochre); }
+  #dayHeader { position: fixed; top: 16px; left: 0; right: 0; z-index: 6; text-align: center; font-family: var(--font-display); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: clamp(0.7rem, 1.3vw, 0.95rem); color: var(--muted); }
+  #dayHeader b { color: var(--ochre); }
+  #dayHeader span { color: var(--white); font-family: var(--font-serif); text-transform: none; letter-spacing: 0; }
   main { flex: 1; padding: var(--sp-xl); max-width: 60vw; }
   aside { width: 34vw; padding: var(--sp-xl) var(--sp-lg); border-left: 1px solid var(--wire); }
 
@@ -33,6 +54,20 @@
 </head>
 <body>
 <canvas id="fx"></canvas>
+
+<!-- INTERLUDIO GIORNI (timeline che scorre) -->
+<div id="interstitial">
+  <div id="iReadout">
+    <div id="iDays">0</div>
+    <div id="iDaysLabel">giorni nel futuro</div>
+    <div id="iDate"></div>
+  </div>
+  <div id="iTimeline">
+    <div id="iTrack"></div>
+    <div id="iPlayhead"></div>
+  </div>
+</div>
+<div id="dayHeader" class="hidden"><b id="hDays"></b> giorni nel futuro · <span id="hDate"></span></div>
 
 <!-- LOBBY -->
 <div id="lobby" class="wrap">
