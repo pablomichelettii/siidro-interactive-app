@@ -15,6 +15,11 @@ const PORT = process.env.PORT || 3000;
 
 const app = Fastify();
 await app.register(fastifyStatic, { root: path.join(__dirname, "..", "public") });
+// GSAP self-hosted (offline-safe, niente CDN) da node_modules
+await app.register(fastifyStatic, {
+  root: path.join(__dirname, "..", "node_modules", "gsap", "dist"),
+  prefix: "/vendor/gsap/", decorateReply: false
+});
 
 // QR generato server-side (offline-safe): dark su bianco per la scansione
 app.get("/qr", async (req, reply) => {
@@ -27,6 +32,15 @@ await app.listen({ port: PORT, host: "0.0.0.0" });
 
 const io = new Server(app.server, { cors: { origin: "*" } });
 const session = new Session(io);
+
+// gate regia: attivo solo se DIRECTOR_TOKEN è impostato (deploy pubblico). Locale = libero.
+io.use((socket, next) => {
+  const role = (socket.handshake.query && socket.handshake.query.role) || "device";
+  const token = process.env.DIRECTOR_TOKEN;
+  if (role === "director" && token && (socket.handshake.query.k || "") !== token)
+    return next(new Error("unauthorized"));
+  next();
+});
 
 io.on("connection", (socket) => {
   const role = (socket.handshake.query && socket.handshake.query.role) || "device";

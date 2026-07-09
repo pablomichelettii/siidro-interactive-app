@@ -65,7 +65,8 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io({ query: { role: "director" } });
+  const socket = io({ query: { role: "director", k: new URLSearchParams(location.search).get("k") || "" } });
+  socket.on("connect_error", () => document.body.innerHTML = "<p style='padding:2rem'>Accesso regia negato: token mancante o errato.</p>");
   const $ = (id) => document.getElementById(id);
   const emit = (ev, d) => socket.emit(ev, d);
   $("bStart").onclick = () => emit("director:start");

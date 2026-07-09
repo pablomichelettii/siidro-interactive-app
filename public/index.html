@@ -5,5 +5,5 @@
   // router minimale: ?role= decide la superficie. default = device (il QR punta qui)
   const role = new URLSearchParams(location.search).get("role") || "device";
   const page = role === "main" ? "main.html" : role === "director" ? "director.html" : "device.html";
-  location.replace(page);
+  location.replace(page + location.search); // preserva ?k= (token regia) e altri param
 </script>
