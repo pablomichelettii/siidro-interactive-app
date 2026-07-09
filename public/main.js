@@ -6,7 +6,7 @@ const $ = (id) => document.getElementById(id);
 const G = window.gsap;
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-$("qr").src = "/qr?data=" + encodeURIComponent(location.origin + "/");
+$("qr").src = "/qr?data=" + encodeURIComponent(location.origin + "/?role=device");
 
 // ==========================================================================
 // PARTICELLE — idle: wander libero su tutto lo schermo; voto: orbita sul polo
@@ -14,14 +14,19 @@ $("qr").src = "/qr?data=" + encodeURIComponent(location.origin + "/");
 const canvas = $("fx"), ctx = canvas.getContext("2d");
 const particles = new Map();
 let poles = { facile: null, difficile: null };
-function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
-addEventListener("resize", resize); resize();
+// il canvas copre l'INTERO documento (scrolla coi contenuti), non il viewport
+function sizeCanvas() {
+  const w = document.documentElement.clientWidth;
+  const h = Math.max(innerHeight, document.documentElement.scrollHeight);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+}
+addEventListener("resize", sizeCanvas); sizeCanvas();
 
 function spawn() {
+  const a = Math.random() * Math.PI * 2, s = 0.4 + Math.random() * 0.5;
   return {
     x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-    heading: Math.random() * Math.PI * 2, speed: 0.5 + Math.random() * 1.2,
-    wobble: Math.random() * Math.PI * 2, orbit: null, color: WHITE, r: 4 + Math.random() * 2
+    vx: Math.cos(a) * s, vy: Math.sin(a) * s, target: null, spin: Math.random() < 0.5 ? -1 : 1, color: WHITE, r: 4 + Math.random() * 2
   };
 }
 function ensure(cid) { if (!particles.has(cid)) particles.set(cid, spawn()); }
@@ -30,38 +35,78 @@ function reconcile(cids) {
   for (const cid of particles.keys()) if (!set.has(cid)) particles.delete(cid);
   cids.forEach(ensure);
 }
-function setOrbit(p, tag) {
-  p.orbit = { pole: tag, R: 55 + Math.random() * 95, omega: (0.018 + Math.random() * 0.03) * (Math.random() < 0.5 ? -1 : 1), theta: null };
-  p.color = tag === "facile" ? TERRA : OCHRE;
-}
-function clearOrbits() { for (const p of particles.values()) { p.orbit = null; p.color = WHITE; p.heading = Math.random() * Math.PI * 2; } }
+function setOrbit(p, tag) { p.target = tag; p.spin = Math.random() < 0.5 ? -1 : 1; p.color = tag === "facile" ? TERRA : OCHRE; }
+function clearOrbits() { for (const p of particles.values()) { p.target = null; p.color = WHITE; const a = Math.random() * Math.PI * 2; p.vx = Math.cos(a) * 0.5; p.vy = Math.sin(a) * 0.5; } }
 function polePos() {
   const votingVisible = !$("voteArea").classList.contains("hidden") && !$("game").classList.contains("hidden");
   if (votingVisible) {
-    const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
+    // coordinate-documento (il canvas parte da top:0): aggiungo lo scroll
+    const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2 + scrollX, y: b.top + b.height / 2 + scrollY }; };
     poles.facile = r($("poleFacile")); poles.difficile = r($("poleDifficile"));
   } else { poles.facile = null; poles.difficile = null; }
 }
+// --- BOIDS idle: lento e un po' caotico -----------------------------------
+// Reynolds (separazione + allineamento + coesione) + wander casuale. O(n²);
+// ponytail: naive va bene fino a qualche centinaio di particelle.
+const NEIGHBOR = 82, SEP_DIST = 30, MAXSPEED = 1.15, MAXFORCE = 0.035;
+const W_SEP = 1.7, W_ALIGN = 0.55, W_COH = 0.5, WANDER = 0.09;
+function steer(p, dx, dy) {
+  const m = Math.hypot(dx, dy); if (m === 0) return [0, 0];
+  let sx = dx / m * MAXSPEED - p.vx, sy = dy / m * MAXSPEED - p.vy;
+  const sm = Math.hypot(sx, sy); if (sm > MAXFORCE) { sx = sx / sm * MAXFORCE; sy = sy / sm * MAXFORCE; }
+  return [sx, sy];
+}
+function flock(p, list) {
+  let alx = 0, aly = 0, cox = 0, coy = 0, sepx = 0, sepy = 0, n = 0, ns = 0;
+  for (const q of list) {
+    if (q === p || q.target) continue;
+    const dx = p.x - q.x, dy = p.y - q.y, d = Math.hypot(dx, dy);
+    if (d > 0 && d < NEIGHBOR) {
+      alx += q.vx; aly += q.vy; cox += q.x; coy += q.y; n++;
+      if (d < SEP_DIST) { sepx += dx / d; sepy += dy / d; ns++; }
+    }
+  }
+  let ax = (Math.random() - 0.5) * WANDER, ay = (Math.random() - 0.5) * WANDER;   // caos
+  if (ns > 0) { const [x, y] = steer(p, sepx / ns, sepy / ns); ax += x * W_SEP; ay += y * W_SEP; }
+  if (n > 0) {
+    const [x1, y1] = steer(p, alx / n, aly / n); ax += x1 * W_ALIGN; ay += y1 * W_ALIGN;
+    const [x2, y2] = steer(p, cox / n - p.x, coy / n - p.y); ax += x2 * W_COH; ay += y2 * W_COH;
+  }
+  const m = 80;                          // rientro morbido dai bordi
+  if (p.x < m) ax += 0.04; else if (p.x > canvas.width - m) ax -= 0.04;
+  if (p.y < m) ay += 0.04; else if (p.y > canvas.height - m) ay -= 0.04;
+  p.vx += ax; p.vy += ay;
+  const sp = Math.hypot(p.vx, p.vy);
+  if (sp > MAXSPEED) { p.vx = p.vx / sp * MAXSPEED; p.vy = p.vy / sp * MAXSPEED; }
+  p.x += p.vx; p.y += p.vy;
+  if (p.x < 0) { p.x = 0; p.vx *= -0.6; } else if (p.x > canvas.width) { p.x = canvas.width; p.vx *= -0.6; }
+  if (p.y < 0) { p.y = 0; p.vy *= -0.6; } else if (p.y > canvas.height) { p.y = canvas.height; p.vy *= -0.6; }
+}
+
+// --- voto: pozzo di gravità (attrazione + vortice + separazione) ----------
+const GRAV = 0.34, SWIRL = 0.22, VOTE_SEP = 26, VOTE_MAX = 2.6, VOTE_DAMP = 0.9;
+function swarm(p, c, list) {
+  const dx = c.x - p.x, dy = c.y - p.y, d = Math.hypot(dx, dy) || 1;
+  let ax = (dx / d) * GRAV, ay = (dy / d) * GRAV;                     // gravità verso il centro
+  ax += (-dy / d) * SWIRL * p.spin; ay += (dx / d) * SWIRL * p.spin;  // vortice attorno al centro
+  for (const q of list) {                                            // separazione: niente collasso in un punto
+    if (q === p || !q.target) continue;
+    const sx = p.x - q.x, sy = p.y - q.y, sd = Math.hypot(sx, sy);
+    if (sd > 0 && sd < VOTE_SEP) { ax += sx / sd * 0.3; ay += sy / sd * 0.3; }
+  }
+  p.vx = (p.vx + ax) * VOTE_DAMP; p.vy = (p.vy + ay) * VOTE_DAMP;
+  const sp = Math.hypot(p.vx, p.vy); if (sp > VOTE_MAX) { p.vx = p.vx / sp * VOTE_MAX; p.vy = p.vy / sp * VOTE_MAX; }
+  p.x += p.vx; p.y += p.vy;
+}
 function frame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const p of particles.values()) {
-    const orbiting = p.orbit && poles[p.orbit.pole];
-    if (orbiting) {
-      const c = poles[p.orbit.pole];
-      if (p.orbit.theta === null) p.orbit.theta = Math.atan2(p.y - c.y, p.x - c.x);
-      p.orbit.theta += p.orbit.omega;
-      const tx = c.x + Math.cos(p.orbit.theta) * p.orbit.R, ty = c.y + Math.sin(p.orbit.theta) * p.orbit.R;
-      p.x += (tx - p.x) * 0.12; p.y += (ty - p.y) * 0.12;
-    } else {
-      p.heading += (Math.random() - 0.5) * 0.35; p.wobble += 0.05;
-      const s = p.speed + Math.sin(p.wobble) * 0.25;
-      p.x += Math.cos(p.heading) * s; p.y += Math.sin(p.heading) * s;
-      const m = 16;
-      if (p.x < -m) p.x = canvas.width + m; else if (p.x > canvas.width + m) p.x = -m;
-      if (p.y < -m) p.y = canvas.height + m; else if (p.y > canvas.height + m) p.y = -m;
-    }
+  const list = [...particles.values()];
+  for (const p of list) {
+    const targeting = p.target && poles[p.target];
+    if (targeting) swarm(p, poles[p.target], list);
+    else flock(p, list);
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7);
-    ctx.fillStyle = p.color; ctx.shadowBlur = orbiting ? 18 : 10; ctx.shadowColor = p.color;
+    ctx.fillStyle = p.color; ctx.shadowBlur = targeting ? 18 : 9; ctx.shadowColor = p.color;
     ctx.fill(); ctx.shadowBlur = 0;
   }
   requestAnimationFrame(frame);
@@ -179,12 +224,12 @@ function animateChapterIn(s) {
 function animateVoteIn() {
   if (REDUCED || !G) return;
   G.from("#voteQ", { opacity: 0, y: 20, duration: 0.5, ease: "power3.out" });
-  G.from(".pole", { opacity: 0, y: 44, scale: 0.94, stagger: 0.12, duration: 0.6, ease: "back.out(1.4)" });
+  // box risposta STATICI: nessuna animazione d'ingresso. Solo i numeri pulsano (vedi main:tally).
 }
 
 let bodyIndex = -1, voteShown = false;
 function renderBody(s) {
-  if (bodyIndex !== s.index) { animateChapterIn(s); bodyIndex = s.index; voteShown = false; }
+  if (bodyIndex !== s.index) { window.scrollTo({ top: 0 }); animateChapterIn(s); bodyIndex = s.index; voteShown = false; }  // nuovo capitolo → torna in cima
   const voting = s.phase === "voting" && s.options;
   $("voteArea").classList.toggle("hidden", !voting);
   if (voting) {
@@ -195,7 +240,10 @@ function renderBody(s) {
     $("poleFacile").querySelector(".n").textContent = s.tally.facile;
     $("poleDifficile").querySelector(".n").textContent = s.tally.difficile;
     $("poleFacile").classList.remove("win"); $("poleDifficile").classList.remove("win");
-    if (!voteShown) { voteShown = true; clearOrbits(); setTimeout(() => { polePos(); animateVoteIn(); }, 30); }
+    if (!voteShown) {
+      voteShown = true; clearOrbits();
+      setTimeout(() => { polePos(); animateVoteIn(); $("voteArea").scrollIntoView({ behavior: "smooth", block: "center" }); }, 30);
+    }
   } else { voteShown = false; clearOrbits(); }
   polePos();
 }
@@ -263,4 +311,4 @@ socket.on("main:sync", (s) => {
   else if (inGame) renderBody(s);
   else if (s.phase === "ended") renderEnded(s);
 });
-setInterval(polePos, 500);
+setInterval(() => { polePos(); sizeCanvas(); }, 500);

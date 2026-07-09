@@ -6,7 +6,7 @@
 <title>Il Libro Vivo del 2039 — Main Screen</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  #fx { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; }
   .layout { position: relative; z-index: 3; min-height: 100vh; display: flex; }
 
   /* interludio "giorni nel futuro": timeline orizzontale che scorre */
@@ -38,7 +38,7 @@
   .count { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem,6vw,4rem); color: var(--ochre); }
 
   /* voting poles */
-  .poles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-lg); margin-top: var(--sp-lg); }
+  .poles { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-lg); margin-top: var(--sp-lg); }
   .pole { border: 1px solid var(--wire); border-radius: 16px; padding: var(--sp-md); min-height: 34vh; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
   .pole.facile { border-color: var(--terra); }
   .pole.difficile { border-color: var(--ochre); }
@@ -46,7 +46,7 @@
   .pole.facile.win { color: var(--terra); }
   .pole.difficile.win { color: var(--ochre); }
   .pole .opt { font-family: var(--font-serif); font-size: clamp(1rem,1.6vw,1.4rem); color: var(--white); }
-  .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem,7vw,5rem); }
+  .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem,7vw,5rem); font-variant-numeric: tabular-nums; min-width: 0; }
   .beat { margin: 1em 0; }
   .agg { display: flex; justify-content: space-between; border-bottom: 1px solid var(--wire); padding: 0.4em 0; font-size: 0.9rem; }
   .agg b { color: var(--ochre); }
