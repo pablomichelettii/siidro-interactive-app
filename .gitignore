@@ -1,0 +1,6 @@
+node_modules/
+.tokensave/
+.DS_Store
+*.log
+.env
+_e2e.mjs

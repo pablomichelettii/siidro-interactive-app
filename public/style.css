@@ -1,0 +1,77 @@
+/* next5000days — brandboard (QZR rebrand). Font via Fontshare con fallback
+   di sistema (se il wifi della scuola blocca la CDN, resta leggibile). */
+@import url("https://api.fontshare.com/v2/css?f[]=panchang@800,700&f[]=sentient@400,500&display=swap");
+
+:root {
+  --bg-slate: #233e4d;
+  --bg-black: #171818;
+  --ochre: #ecae31;
+  --terra: #e18e74;
+  --white: #ffffff;
+  --muted: rgba(255, 255, 255, 0.65);
+  --wire: rgba(255, 255, 255, 0.2);
+  --ochre-a: rgba(236, 174, 49, 0.85);
+  --slate-a: rgba(35, 62, 77, 0.85);
+
+  --font-display: "Panchang", system-ui, -apple-system, sans-serif;
+  --font-serif: "Sentient", Georgia, serif;
+
+  --sp-xs: 8px; --sp-sm: 16px; --sp-md: 32px; --sp-lg: 48px; --sp-xl: 80px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background-color: var(--bg-slate);
+  background-image: radial-gradient(circle at top left, var(--ochre-a) 0%, var(--slate-a) 65%, var(--bg-slate) 100%);
+  background-attachment: fixed;
+  color: var(--white);
+  font-family: var(--font-serif);
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* grana analogica */
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.14; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.display { font-family: var(--font-display); font-weight: 800; letter-spacing: 0.04em; line-height: 1.1; text-transform: uppercase; }
+.year { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.22em; font-size: 0.8rem; color: var(--ochre); text-transform: uppercase; }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+
+h1.hero { font-family: var(--font-display); font-weight: 800; letter-spacing: 0.02em; line-height: 0.95;
+  font-size: clamp(3.5rem, 8vw, 7rem); margin: 0.1em 0; text-transform: uppercase; }
+h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.02em;
+  font-size: clamp(1.75rem, 4vw, 3.5rem); line-height: 1.05; margin: 0.2em 0 0.5em; text-transform: uppercase; }
+
+.wrap { position: relative; z-index: 2; }
+
+/* segnale + contatore (stile MVP) */
+.signal { border-left: 3px solid var(--ochre); padding: 0.4em 0 0.4em 1em; color: #f0dca9; font-style: italic; }
+.counter { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem, 8vw, 5rem); color: var(--ochre); line-height: 1; margin: 0.2em 0; }
+.counter small { display: block; font-family: var(--font-serif); font-weight: 400; font-size: 0.95rem; color: var(--muted); }
+
+/* pannello stato */
+.delega-wrap { margin: var(--sp-md) 0; }
+.delega-lab { display: flex; justify-content: space-between; font-family: var(--font-display); font-weight: 700; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--sp-xs); }
+.track { height: 10px; border: 1px solid var(--wire); border-radius: 6px; overflow: hidden; background: rgba(0,0,0,0.3); }
+.track > i { display: block; height: 100%; background: linear-gradient(90deg, var(--terra), var(--ochre)); transition: width 0.8s ease; }
+.worldname { font-family: var(--font-display); font-weight: 800; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 0.02em; }
+
+/* intrecci */
+.fired { border: 1px solid var(--wire); border-radius: 8px; padding: 0.7em 1em; margin: 0.5em 0; font-size: 0.95rem; }
+.fired.neg { border-color: var(--terra); color: #f3c3b3; background: rgba(225,142,116,0.08); }
+.fired.pos { border-color: var(--ochre); color: #f3dca6; background: rgba(236,174,49,0.08); }
+
+/* bottoni / opzioni */
+.btn { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  border: 1px solid var(--ochre); background: transparent; color: var(--white); padding: var(--sp-sm) var(--sp-md);
+  border-radius: 10px; cursor: pointer; transition: 0.15s; font-size: 0.9rem; }
+.btn:hover { background: var(--ochre); color: var(--bg-black); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn.ghost { border-color: var(--wire); }

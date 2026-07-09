@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Il Libro Vivo del 2039</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { display: flex; }
+  .screen { position: relative; z-index: 2; margin: auto; width: 100%; max-width: 520px; min-height: 100vh; padding: var(--sp-lg) var(--sp-md); display: flex; flex-direction: column; justify-content: center; gap: var(--sp-md); }
+  .wait { text-align: center; }
+  .wait .display { font-size: 1.6rem; color: var(--ochre); margin-bottom: var(--sp-sm); }
+  .vote-opt { width: 100%; text-align: left; font-family: var(--font-serif); text-transform: none; letter-spacing: 0; font-size: 1.1rem; padding: var(--sp-md); line-height: 1.4; }
+  .vote-opt.picked { background: var(--ochre); color: var(--bg-black); }
+  #timerNote { text-align: center; }
+  .cmp { border: 1px solid var(--wire); border-radius: 14px; padding: var(--sp-md); }
+  .cmp .big { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; font-size: 1.3rem; }
+  .cmp .room { color: var(--terra); } .cmp .you { color: var(--ochre); }
+</style>
+</head>
+<body>
+<div class="screen wrap">
+  <!-- attesa -->
+  <div id="wait" class="wait">
+    <div class="display">Segui lo schermo</div>
+    <p class="muted" id="waitSub">Sei dentro il libro. Quando la storia si ferma, tocca a te.</p>
+  </div>
+
+  <!-- voto -->
+  <div id="voteBox" class="hidden">
+    <div class="year">La storia si è fermata</div>
+    <h2 id="q" style="font-size:1.4rem"></h2>
+    <div id="opts"></div>
+    <p id="voteNote" class="muted hidden" style="text-align:center">Voto registrato. Puoi ancora cambiare idea.</p>
+  </div>
+
+  <!-- epilogo personale -->
+  <div id="endBox" class="hidden">
+    <div class="year">Il tuo 2039</div>
+    <div class="cmp">
+      <p>La sala è arrivata a</p>
+      <div class="big room" id="roomName"></div>
+      <p style="margin-top:1em" id="cmpBridge">Ma con le tue scelte</p>
+      <div class="big you" id="youName"></div>
+      <p class="muted" id="youCount" style="margin-top:0.5em"></p>
+    </div>
+    <p id="youVerdict" style="margin-top:var(--sp-md)"></p>
+    <div id="youFired" style="margin-top:var(--sp-sm)"></div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="device.js"></script>
+</body>
+</html>

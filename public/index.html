@@ -1,0 +1,9 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Il Libro Vivo del 2039</title>
+<script>
+  // router minimale: ?role= decide la superficie. default = device (il QR punta qui)
+  const role = new URLSearchParams(location.search).get("role") || "device";
+  const page = role === "main" ? "main.html" : role === "director" ? "director.html" : "device.html";
+  location.replace(page);
+</script>

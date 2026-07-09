@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regia — Il Libro Vivo del 2039</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .pad { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: var(--sp-lg) var(--sp-md); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--sp-sm); margin: var(--sp-md) 0; }
+  .card { border: 1px solid var(--wire); border-radius: 12px; padding: var(--sp-md); margin: var(--sp-sm) 0; }
+  .kpi { display: flex; gap: var(--sp-lg); flex-wrap: wrap; }
+  .kpi > div .n { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: var(--ochre); }
+  .kpi > div .l { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .tono { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.3em 0; border-bottom: 1px solid var(--wire); }
+  .tono b { color: var(--ochre); }
+  .tallybar { display: flex; height: 26px; border: 1px solid var(--wire); border-radius: 6px; overflow: hidden; margin-top: var(--sp-sm); }
+  .tallybar .f { background: var(--terra); } .tallybar .d { background: var(--ochre); }
+  .tallybar span { display: flex; align-items: center; justify-content: center; color: var(--bg-black); font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; transition: width 0.3s; }
+  .phase { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; color: var(--ochre); letter-spacing: 0.1em; }
+</style>
+</head>
+<body>
+<div class="pad wrap">
+  <div class="year">Cruscotto Regia · non proiettare</div>
+  <h2 style="font-size:2rem">Il Libro Vivo del 2039</h2>
+
+  <div class="card">
+    <div>Stato: <span class="phase" id="phase">—</span> · <span id="chLabel" class="muted"></span></div>
+    <div class="row">
+      <button class="btn" id="bStart">▶ Inizia</button>
+      <button class="btn" id="bOpen">Apri voto</button>
+      <button class="btn" id="bClose">Chiudi voto</button>
+      <button class="btn ghost" id="bTieF">Tiebreak ◄</button>
+      <button class="btn ghost" id="bTieD">Tiebreak ►</button>
+      <button class="btn ghost" id="bSkip">Salta ▷</button>
+      <button class="btn ghost" id="bReset">Reset</button>
+    </div>
+  </div>
+
+  <div class="card kpi">
+    <div><div class="n" id="kConn">0</div><div class="l">Collegati</div></div>
+    <div><div class="n" id="kDelega">50</div><div class="l">Indice di Delega</div></div>
+    <div><div class="n" id="kWorld" style="font-size:1.2rem">In bilico</div><div class="l">Attrattore sala</div></div>
+  </div>
+
+  <div class="card">
+    <div class="year">Voto in corso</div>
+    <div class="tallybar"><span class="f" id="tbF" style="width:50%">0</span><span class="d" id="tbD" style="width:50%">0</span></div>
+    <div class="muted" id="tallyTxt" style="font-size:0.8rem;margin-top:0.4em"></div>
+  </div>
+
+  <div class="card">
+    <div class="year">Assi del tono (solo regia)</div>
+    <div class="tono"><span>Coesione ↔ Solitudine</span><b id="axC">0</b></div>
+    <div class="tono"><span>Verità ↔ Nebbia</span><b id="axV">0</b></div>
+    <div class="tono"><span>Equità ↔ Divario</span><b id="axE">0</b></div>
+  </div>
+
+  <div class="card">
+    <div class="year">Intrecci scattati</div>
+    <div id="fired"><span class="muted" style="font-size:0.85rem">Nessuno.</span></div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io({ query: { role: "director" } });
+  const $ = (id) => document.getElementById(id);
+  const emit = (ev, d) => socket.emit(ev, d);
+  $("bStart").onclick = () => emit("director:start");
+  $("bOpen").onclick = () => emit("director:openVote");
+  $("bClose").onclick = () => emit("director:closeVote");
+  $("bTieF").onclick = () => emit("director:closeVote", { option: "facile" });
+  $("bTieD").onclick = () => emit("director:closeVote", { option: "difficile" });
+  $("bSkip").onclick = () => emit("director:skip");
+  $("bReset").onclick = () => { if (confirm("Azzerare la sessione?")) emit("director:reset"); };
+
+  function tally(t) {
+    const tot = t.total || 1;
+    $("tbF").style.width = (t.facile / tot * 100) + "%"; $("tbF").textContent = t.facile;
+    $("tbD").style.width = (t.difficile / tot * 100) + "%"; $("tbD").textContent = t.difficile;
+    $("tallyTxt").textContent = `${t.total} voti espressi · ${t.connected} collegati`;
+  }
+  socket.on("director:tally", tally);
+  socket.on("director:sync", (s) => {
+    $("phase").textContent = s.phase;
+    $("chLabel").textContent = s.chapter ? `${s.chapter.year} — ${s.chapter.title}` : "";
+    $("kConn").textContent = s.connected;
+    $("kDelega").textContent = s.delega;
+    $("kWorld").textContent = s.attractor.name;
+    $("axC").textContent = s.tono.coesione; $("axV").textContent = s.tono.verita; $("axE").textContent = s.tono.equita;
+    $("fired").innerHTML = s.fired.length ? s.fired.map(f => `<div class="fired ${f.kind}">${f.txt}</div>`).join("")
+      : `<span class="muted" style="font-size:0.85rem">Nessuno.</span>`;
+    tally(s.tally);
+  });
+</script>
+</body>
+</html>

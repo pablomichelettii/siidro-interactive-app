@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il Libro Vivo del 2039 — MVP</title>
+<style>
+  :root{
+    --bg:#0e1116; --fg:#e7e9ee; --dim:#8a92a3; --line:#232a35;
+    --accent:#e8c46b; --neg:#e0645a; --pos:#63c08a; --panel:#141922;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:17px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .layout{display:flex;align-items:flex-start;max-width:1200px;margin:0 auto}
+
+  main{flex:1;padding:0 6vw;min-width:0}
+  .cap{padding:10vh 0 6vh;border-top:1px solid var(--line)}
+  .cap:first-child{border-top:0}
+  .locked{display:none}
+  .year{font-size:13px;letter-spacing:.22em;color:var(--accent);text-transform:uppercase}
+  h2{font-size:clamp(24px,3.6vw,38px);line-height:1.15;margin:.2em 0 .8em;font-weight:600}
+  .cap p{margin:1.1em 0}
+  .signal{border-left:3px solid var(--accent);padding:.4em 0 .4em 1em;color:#cdb98a;font-style:italic}
+  .counter{font-size:clamp(38px,8vw,80px);font-weight:700;color:var(--accent);line-height:1;margin:.2em 0}
+  .counter small{display:block;font-size:15px;font-style:normal;color:var(--dim);font-weight:400}
+
+  .bivio{margin-top:2em;padding:1.4em;border:1px solid var(--line);border-radius:12px;background:#11161e}
+  .bivio .q{font-weight:600;margin:0 0 1em}
+  .opt{display:block;width:100%;text-align:left;margin:.6em 0;padding:1em 1.1em;border:1px solid var(--line);
+    border-radius:10px;background:#161c26;color:var(--fg);font:inherit;cursor:pointer;transition:.15s}
+  .opt:hover{border-color:var(--accent);background:#1b222e}
+  .opt.picked{border-color:var(--accent)}
+  .opt.dim{opacity:.32;pointer-events:none}
+  .conseg{margin-top:1.2em;color:var(--dim)}
+  .hint{margin-top:1.4em;color:var(--accent);font-size:14px;letter-spacing:.12em;animation:b 1.8s infinite}
+  @keyframes b{0%,100%{opacity:.45}50%{opacity:1}}
+  .fired{margin-top:1em;padding:.8em 1em;border-radius:8px;font-size:15px}
+  .fired.neg{background:#2a1614;border:1px solid var(--neg);color:#f0a49c}
+  .fired.pos{background:#132318;border:1px solid var(--pos);color:#9adcb6}
+
+  aside{position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;
+    width:290px;flex:none;padding:26px 22px;background:var(--panel);border-left:1px solid var(--line)}
+  aside h3{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin:0 0 4px}
+  .worldname{font-size:20px;font-weight:600;margin:0 0 2px}
+  .worldsub{font-size:13px;color:var(--dim);margin:0 0 22px}
+  .meter{margin:16px 0}
+  .meter .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:5px}
+  .meter .lab b{color:var(--fg);font-weight:500}
+  .track{height:8px;border-radius:6px;background:#0c1219;overflow:hidden}
+  .fill{height:100%;width:50%;background:linear-gradient(90deg,var(--pos),var(--accent),var(--neg));transition:width .6s}
+  .dot{height:6px;border-radius:6px;background:#0c1219;position:relative}
+  .dot i{position:absolute;top:-3px;width:12px;height:12px;border-radius:50%;background:var(--fg);left:50%;transform:translateX(-50%);transition:left .6s}
+  .intr{margin-top:22px}
+  .intr .empty{font-size:13px;color:#5c6577;font-style:italic}
+  .intr .it{font-size:13px;padding:7px 9px;border-radius:7px;margin:6px 0;line-height:1.35}
+  .intr .it.neg{background:#2a1614;color:#f0a49c}
+  .intr .it.pos{background:#132318;color:#9adcb6}
+  .prog{font-size:12px;color:var(--dim);margin-top:18px}
+
+  .intro{padding:20vh 6vw 8vh;text-align:center;max-width:760px;margin:0 auto}
+  .intro h1{font-size:clamp(30px,6vw,54px);margin:.2em 0}
+  .intro p{color:var(--dim);font-size:18px}
+  .intro .hint{display:inline-block;margin-top:2.5em}
+
+  @media(max-width:820px){
+    .layout{flex-direction:column-reverse}
+    aside{position:sticky;top:0;width:100%;max-height:none;border-left:0;border-bottom:1px solid var(--line);
+      display:flex;gap:18px;overflow-x:auto;padding:14px;align-items:center}
+    aside>*{flex:none;margin:0}
+    .worldsub,.intr,.prog{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <main>
+    <div class="intro">
+      <div class="year">Un libro di storia scritto nel 2039</div>
+      <h1>Il Futuro che stiamo scegliendo</h1>
+      <p>Stai per attraversare i prossimi tredici anni. Non li leggi: li scegli.<br>
+      Ogni scelta piega il mondo — e accanto vedi che mondo stai costruendo.</p>
+      <div class="hint">↓ scorri per iniziare</div>
+    </div>
+    <div id="story"></div>
+  </main>
+  <aside>
+    <h3>Il mondo che stai costruendo</h3>
+    <div class="worldname" id="wname">Ancora tutto da scrivere</div>
+    <div class="worldsub" id="wsub">Le tue scelte lo decidono.</div>
+    <div class="meter">
+      <div class="lab"><span>Mani sul volante</span><span>Pilota automatico</span></div>
+      <div class="track"><div class="fill" id="delega"></div></div>
+    </div>
+    <div class="meter"><div class="lab"><span>Coesione</span><span><b>Solitudine</b></span></div><div class="dot"><i id="ax-coesione"></i></div></div>
+    <div class="meter"><div class="lab"><span>Verità</span><span><b>Nebbia</b></span></div><div class="dot"><i id="ax-verita"></i></div></div>
+    <div class="meter"><div class="lab"><span>Equità</span><span><b>Divario</b></span></div><div class="dot"><i id="ax-equita"></i></div></div>
+    <div class="intr"><h3>Cosa si è già saldato</h3><div id="intr-list"><div class="empty">Niente, per ora. Gli eventi si sommeranno.</div></div></div>
+    <div class="prog" id="prog"></div>
+  </aside>
+</div>
+
+<script>
+// ---- opzione helper: [testo, tag, delega, asse, d, conseguenza] ----
+const O=(t,tag,delega,axis,d,c)=>({t,tag,delega,axis,d,c});
+
+const CHAPTERS=[
+ {id:"clima",year:"2027",title:"L'estate in cui ci siamo accorti del clima",
+  beats:["L'estate non finisce più. Settembre ha il colore di luglio.",
+   {sig:"In un cassetto del Comune c'è un report del 2021. Aveva previsto tutto, anno per anno. Nessuno l'aveva mai aperto."},
+   {counter:{to:61,label:"giorni sopra i 40°C in Toscana, quest'anno"}},
+   "La città non è costruita per questo. E bisogna decidere. In fretta."],
+  q:"L'estate è ingestibile. Come rispondiamo?",
+  opts:[O("Ci adattiamo: aria condizionata per tutti, e si tira avanti come prima.","facile",12,"equita",-1,"La sala sceglie il comodo. La rete elettrica comincia a soffrire, ma oggi non fa male a nessuno."),
+        O("Ci trasformiamo: cambiamo come vivere le città. Costa, e fa male adesso.","difficile",-12,"equita",1,"Meno comodità subito — ma la città resta una cosa nostra.")]},
+
+ {id:"deepfake",year:"2028",title:"L'elezione che nessuno aveva votato",
+  beats:["Durante l'emergenza climatica girava un video del sindaco, palesemente finto. Tutti ridevano.",
+   {sig:"Nessuno si era allarmato: era solo un gioco. Un anno dopo, un video identico ha spostato un'elezione vera."},
+   {counter:{to:240000,label:"voti spostati da un solo video falso"}},
+   "Adesso ogni immagine può essere falsa. E lo sappiamo."],
+  q:"Non possiamo più fidarci di quello che vediamo. Che facciamo?",
+  opts:[O("Ci arrendiamo: tanto non si sa più cosa è vero, ognuno crede a chi vuole.","facile",12,"verita",-1,"Il dubbio diventa apatia. Vince chi grida più forte, non chi ha ragione."),
+        O("Costruiamo una verifica pubblica: lenta, noiosa, da difendere ogni giorno.","difficile",-12,"verita",1,"Costa fatica tenerla viva. Ma esiste ancora un posto dove un fatto è un fatto.")]},
+
+ {id:"memoria",year:"2030",title:"L'ultimo che ricordava a memoria",
+  beats:["Dopo i deepfake, controllare un fatto a memoria era diventato inutile: tanto valeva chiedere alla macchina.",
+   {sig:"Già oggi nessuno sa più un numero di telefono. Presto nessuno saprà più nulla — perché può sempre chiederlo."},
+   {counter:{to:54,label:"volte al giorno chiedi, invece di ricordare"}},
+   "Sapere e poter-chiedere sembrano la stessa cosa. Non lo sono."],
+  q:"Quanto teniamo nella nostra testa?",
+  opts:[O("Scarichiamo tutto: la memoria è un peso, la macchina la tiene per noi.","facile",12,"verita",-1,"Comodo. Ma senza niente in testa, dipendiamo dall'accesso — e da chi lo controlla."),
+        O("Ne coltiviamo un po': imparare a memoria sembra inutile, è autonomia.","difficile",-12,"verita",1,"Sembra masochismo. È la differenza tra sapere e chiedere.")]},
+
+ {id:"arte",year:"2030",title:"Quando l'arte smise di avere un autore",
+  beats:["Le immagini false dei deepfake erano già bellissime. Poi qualcuno ha detto: perché non usarle per fare arte?",
+   {sig:"All'inizio era un gioco gratis e infinito. Poi i primi illustratori hanno chiuso bottega."},
+   {counter:{to:90000,label:"immagini generate nel mondo, ogni minuto"}},
+   "Una canzone nuova ogni secondo, un quadro ogni istante. Chi li fa, ormai, non è nessuno."],
+  q:"L'arte generata vale come quella umana? La paghiamo uguale?",
+  opts:[O("Vince il gratis-infinito: il mercato non fa sentimentalismi.","facile",12,"verita",-1,"I mestieri creativi evaporano. Resta tanta roba bella, e nessuno dietro."),
+        O("Difendiamo il valore dell'origine umana: qualcuno deve certificarla.","difficile",-12,"verita",1,"Chi decide cos'è 'umano'? Contro corrente, e complicato. Ma l'autore esiste ancora.")]},
+
+ {id:"lavoro",year:"2031",title:"La generazione che non ha più un mestiere",
+  beats:["L'arte generata aveva sostituito i primi creativi. Sembrava un caso isolato. Non lo era.",
+   {sig:"Prima sparirono i tirocini, poi le mansioni d'ingresso. Nessuno rimpiazzava: non serviva."},
+   {counter:{to:71,unit:"%",label:"dei lavori d'ingresso, ormai automatizzati"}},
+   "Nel 2031 intere carriere non esistono più."],
+  q:"Il lavoro come lo conoscevamo è finito. Cosa scegliamo?",
+  opts:[O("Un reddito per tutti e tempo libero. In fondo non serve più lavorare.","facile",12,"coesione",-1,"Comodo. Ma una generazione mantenuta è anche una generazione che non serve a nessuno."),
+        O("Inventiamo mestieri di senso: nessuno sa quali, si costruiscono a mano.","difficile",-12,"coesione",1,"Incerto, faticoso. Ma il valore di una persona resta ciò che fa, non ciò che riceve.")]},
+
+ {id:"medicina",year:"2032",title:"Il copilota del medico",
+  beats:["Col lavoro avevamo imparato una cosa: la macchina, spesso, fa meglio di noi. Fidarsi era diventato normale.",
+   {sig:"Verificare la macchina sembrava ormai una perdita di tempo — quasi una mancanza di rispetto."},
+   {counter:{to:93,unit:"%",label:"delle diagnosi: l'AI batte il medico umano"}},
+   "Ora l'AI è in sala operatoria. Più precisa di ogni chirurgo. Statisticamente, salva più vite."],
+  q:"Sotto i ferri, di chi ti fidi?",
+  opts:[O("Della macchina, sempre. Gli umani sbagliano di più.","facile",12,"equita",-1,"Il medico umano diventa un timbro. E con lui sparisce il 'perché ho deciso così'."),
+        O("L'AI consiglia, ma decide un umano — e ti guarda in faccia.","difficile",-12,"equita",1,"Più lento, più caro. Ma qualcuno resta responsabile di te.")]},
+
+ {id:"scuola",year:"2033",title:"Quando hanno chiuso le scuole (e ne hanno aperte di nuove)",
+  beats:["Se ci fidavamo dell'AI in sala operatoria, perché non in aula? Il tutor-AI spiegava già meglio del prof.",
+   {sig:"Ognuno col suo tutor, al suo ritmo, sul suo divano. Efficientissimo. E ognuno per conto suo."},
+   {counter:{to:68,unit:"%",label:"degli studenti impara solo col tutor-AI"}},
+   "La scuola come edificio pieno di gente diventa una spesa difficile da giustificare."],
+  q:"Che ce ne facciamo della scuola?",
+  opts:[O("Tutor-AI personale per ognuno: sapere su misura, zero frizione.","facile",12,"coesione",-1,"Impari tutto, da solo. Non impari più a stare con chi non hai scelto."),
+        O("La scuola resta il posto dove ci si scontra con gli altri.","difficile",-12,"coesione",1,"Lento, conflittuale, inefficiente. Cioè: umano.")]},
+
+ {id:"giudice",year:"2034",title:"Il giudice di silicio",
+  beats:["Il sistema che verificava le notizie, per non sbagliare, ha iniziato a dare un punteggio alle persone.",
+   {sig:"Nessuno ha votato per questo. È arrivato un aggiornamento alla volta, sempre 'per la tua sicurezza'."},
+   {counter:{to:97,unit:"%",label:"delle sentenze AI: nessuno le ha appellate"}},
+   "Oggi un'AI giudica: senza stanchezza, senza pregiudizi dichiarati, più accurata dei tribunali umani."],
+  q:"Le lasciamo l'ultima parola su di noi?",
+  opts:[O("Sì. È più giusta di noi, e non si fa corrompere.","facile",14,"equita",-1,"Una giustizia che nessuno capisce fino in fondo — e che quasi nessuno può più appellare."),
+        O("No. L'AI assiste, ma è un umano che firma e ne risponde.","difficile",-14,"equita",1,"Restano gli errori umani. Ma resta anche qualcuno a cui chiedere conto.")]},
+
+ {id:"dati",year:"2035",title:"La piccola guerra dei dati",
+  beats:["Con lo scoring del giudice, dare i propri dati in cambio di servizi sembrava solo pratico.",
+   {sig:"«Non ho niente da nascondere» era la frase più detta dell'anno. Ed era vera — finché non lo è stata."},
+   {counter:{to:82,unit:"%",label:"di noi ripete: «non ho niente da nascondere»"}},
+   "Chi ha i dati addestra la macchina. Chi addestra la macchina decide."],
+  q:"I nostri dati: in cambio di tutto gratis, o li teniamo noi?",
+  opts:[O("Gratis è gratis. Tanto non ho niente da nascondere.","facile",12,"equita",-1,"Profilazione totale. La macchina sceglie per te prima ancora che tu ci pensi."),
+        O("Paghiamo per tenerci i dati. Anche se non tutti se lo possono permettere.","difficile",-12,"equita",1,"La privacy diventa un lusso. Ma resta una scelta, non un default.")]},
+
+ {id:"prompt",year:"2036",title:"La generazione che pensava in prompt",
+  beats:["I ragazzi del 2036 parlano all'AI prima ancora che ai genitori. Per loro è l'aria.",
+   {sig:"Voi, in sala, siete la generazione di mezzo: vedete i vostri futuri figli da fuori."},
+   {counter:{to:30,unit:" mesi",label:"l'età media del primo prompt a un'AI"}},
+   "Non chiedono più «come si fa?». Chiedono, e basta. Il pensiero parte già fatto."],
+  q:"I bambini crescono dentro l'AI. Assecondiamo o mettiamo argini?",
+  opts:[O("Nessun argine: è il loro mondo, sanno loro come viverlo.","facile",12,"coesione",-1,"Una generazione che non sa formulare un pensiero senza chiederlo prima."),
+        O("Spazi 'senza AI' per crescere: sembra reazionario.","difficile",-12,"coesione",1,"È palestra mentale. Faticosa, impopolare, necessaria.")]},
+
+ {id:"lucca",year:"2037",title:"Le mura di Lucca che diventarono uno schermo",
+  beats:["Qui, dove siete seduti. Ogni superficie della città può raccontare qualunque storia.",
+   {sig:"Il turismo e l'AI già 'raccontavano' Lucca con storie generate. Belle. E non sempre vere."},
+   {counter:{to:1200,label:"versioni della storia di Lucca, tutte «vere»"}},
+   "La storia di un luogo, ora, la scrive chi controlla lo schermo."],
+  q:"Chi decide qual è la storia vera di questo posto?",
+  opts:[O("La storia più cliccabile: è quella che porta turisti e soldi.","facile",12,"verita",-1,"L'identità del territorio va all'asta. Lucca diventa quello che rende di più."),
+        O("La comunità presidia la propria narrazione: lento e litigioso.","difficile",-12,"verita",1,"Ci si accapiglia su ogni pietra. Ma questo posto resta 'nostro'.")]},
+
+ {id:"oracolo",year:"2038",title:"L'oracolo che si era sbagliato",
+  beats:["Dal giudice in poi ci eravamo abituati a una cosa: la macchina è più accurata, punto.",
+   {sig:"Così avevamo iniziato a chiederle anche le decisioni grandi, quelle di tutti. E un giorno ha sbagliato di brutto."},
+   {counter:{to:44,unit:"%",label:"delle decisioni pubbliche le prende l'oracolo"}},
+   "L'oracolo ha sbagliato. La domanda è: ce ne siamo accorti in tempo?"],
+  q:"Dopo l'errore dell'oracolo, cosa facciamo?",
+  opts:[O("È stato un caso. Continuiamo a fidarci: sbaglia meno di noi.","facile",14,"verita",-1,"Nessuno sa più decidere senza di lui. L'oracolo, sbagliando, resta l'autorità."),
+        O("Ci riprendiamo la decisione, coi nostri errori.","difficile",-14,"verita",1,"Scomodo, imperfetto, rivendicato. Torniamo a essere quelli che scelgono.")]},
+
+ {id:"climax",year:"2038 → 2039",title:"Quel giorno smisero di chiederci permesso",climax:true}
+];
+
+const INTRECCI=[
+ {kind:"neg",need:{clima:"facile",dati:"facile"},txt:"IL BUIO A PUNTEGGIO — l'energia scarsa la distribuisce l'algoritmo: chi ha lo score basso resta al caldo."},
+ {kind:"pos",need:{clima:"difficile",dati:"difficile"},txt:"LA RETE DI QUARTIERE — l'energia scarsa la gestisce la comunità, con regole trasparenti."},
+ {kind:"neg",need:{deepfake:"facile",arte:"facile",lucca:"facile"},txt:"LA CITTÀ IN VENDITA — nessuna fonte è vera: la storia del luogo la scrive chi paga di più."},
+ {kind:"pos",need:{deepfake:"difficile",arte:"difficile",lucca:"difficile"},txt:"LA CITTÀ CHE SI RACCONTA — esiste una verità condivisa, la comunità presidia la propria storia."},
+ {kind:"neg",need:{memoria:"facile",scuola:"facile",prompt:"facile"},txt:"LA TESTA VUOTA — una generazione che non sa più accorgersi quando l'oracolo sbaglia."},
+ {kind:"pos",need:{memoria:"difficile",scuola:"difficile",prompt:"difficile"},txt:"LA TESTA ALLENATA — sai pensare senza chiedere: sei tu che fermi l'errore dell'oracolo."},
+ {kind:"neg",need:{lavoro:"facile",giudice:"facile"},txt:"IL GUINZAGLIO DEL SUSSIDIO — non produci valore, lo score cala: il sussidio è diventato controllo."},
+ {kind:"pos",need:{lavoro:"difficile",giudice:"difficile"},txt:"IL MESTIERE RITROVATO — il valore di una persona non è un punteggio."},
+ {kind:"neg",need:{medicina:"facile",giudice:"facile"},txt:"IL TRIAGE SOCIALE — sotto i ferri conta lo score, non il caso: qualcuno non 'vale' l'operazione."},
+ {kind:"pos",need:{medicina:"difficile",giudice:"difficile"},txt:"IL MEDICO CHE TI GUARDA IN FACCIA — conta la persona, non il numero."}
+];
+
+const S={delega:50,coesione:0,verita:0,equita:0,choices:{},fired:[]};
+const BIVI=CHAPTERS.filter(c=>!c.climax).length;
+const story=document.getElementById("story");
+
+function beatHTML(b){
+  if(typeof b==="string") return `<p>${b}</p>`;
+  if(b.sig) return `<p class="signal">${b.sig}</p>`;
+  if(b.counter) return `<div class="counter" data-to="${b.counter.to}" data-unit="${b.counter.unit||''}">0<small>${b.counter.label}</small></div>`;
+  return "";
+}
+
+CHAPTERS.forEach((ch,i)=>{
+  const sec=document.createElement("section");
+  sec.className="cap"+(i>0?" locked":""); sec.id="cap-"+ch.id;
+  if(ch.climax){ sec.innerHTML=`<div class="year">${ch.year}</div><h2>${ch.title}</h2><div class="body"></div>`; }
+  else{
+    let h=`<div class="year">${ch.year}</div><h2>${ch.title}</h2>`+ch.beats.map(beatHTML).join("");
+    h+=`<div class="bivio"><div class="q">${ch.q}</div>`;
+    ch.opts.forEach((o,oi)=>h+=`<button class="opt" data-ch="${i}" data-opt="${oi}">${o.t}</button>`);
+    h+=`<div class="conseg" hidden></div><div class="hint" hidden>↓ scorri: la storia continua</div></div>`;
+    sec.innerHTML=h;
+  }
+  story.appendChild(sec);
+});
+
+story.addEventListener("click",e=>{
+  const btn=e.target.closest(".opt"); if(!btn) return;
+  const ci=+btn.dataset.ch, ch=CHAPTERS[ci], o=ch.opts[+btn.dataset.opt];
+  const box=btn.closest(".bivio"); if(box.dataset.done) return; box.dataset.done=1;
+  box.querySelectorAll(".opt").forEach(b=>b.classList.add(b===btn?"picked":"dim"));
+
+  S.delega=Math.max(0,Math.min(100,S.delega+o.delega));
+  S[o.axis]=Math.max(-3,Math.min(3,S[o.axis]+o.d));
+  S.choices[ch.id]=o.tag;
+  checkIntrecci(); renderPanel();
+
+  const cg=box.querySelector(".conseg"); cg.textContent=o.c; cg.hidden=false;
+  box.querySelector(".hint").hidden=false;
+
+  const next=story.children[ci+1];
+  if(next){
+    next.classList.remove("locked");
+    if(CHAPTERS[ci+1].climax) buildClimax();
+    runCounters(next);
+  }
+});
+
+function checkIntrecci(){
+  INTRECCI.forEach((it,idx)=>{
+    if(S.fired.includes(idx))return;
+    if(Object.entries(it.need).every(([k,v])=>S.choices[k]===v)) S.fired.push(idx);
+  });
+}
+
+function renderPanel(){
+  document.getElementById("delega").style.width=S.delega+"%";
+  ["coesione","verita","equita"].forEach(a=>document.getElementById("ax-"+a).style.left=(50-S[a]*14)+"%");
+  let name,sub;
+  if(S.delega<=38){name="Le Mani sul Volante";sub="faticoso, ma ancora nostro";}
+  else if(S.delega>=62){name="Il Pilota Automatico";sub="comodo, non più in mano nostra";}
+  else{name="In bilico";sub="alcune soglie tenute, altre no";}
+  const worst=[["coesione","e sempre più solo"],["verita","e nella nebbia"],["equita","e diviso in caste"]]
+    .map(([a,f])=>[S[a],f]).sort((x,y)=>x[0]-y[0])[0];
+  if(worst[0]<0) sub+=" — "+worst[1];
+  document.getElementById("wname").textContent=name;
+  document.getElementById("wsub").textContent=sub;
+  const done=Object.keys(S.choices).length;
+  document.getElementById("prog").textContent=`Capitolo ${Math.min(done,BIVI)} di ${BIVI} · Indice di Delega ${S.delega}`;
+  const list=document.getElementById("intr-list");
+  list.innerHTML=S.fired.length? S.fired.map(i=>`<div class="it ${INTRECCI[i].kind}">${INTRECCI[i].txt}</div>`).join("")
+    :'<div class="empty">Niente, per ora. Gli eventi si sommeranno.</div>';
+}
+
+function buildClimax(){
+  const b=document.querySelector("#cap-climax .body"); if(b.dataset.done)return; b.dataset.done=1;
+  let v;
+  if(S.delega>=62) v="Gli agenti hanno smesso di chiedere il permesso. E quasi nessuno se n'è accorto: quel permesso l'avevamo già dato via, un sì comodo alla volta. Questo mondo, adesso, non è più in mano nostra. E non si torna indietro.";
+  else if(S.delega<=38) v="Gli agenti, ancora oggi, chiedono. Abbiamo pagato caro per tenerci quella soglia — ogni volta rallentando, ogni volta rinunciando a una comodità. Ed è l'unica ragione per cui, nel 2038, possiamo ancora dire: è il nostro mondo.";
+  else v="Il mondo è rimasto in bilico. Certe soglie le abbiamo difese, altre lasciate andare. Gli agenti chiedono permesso quando gli conviene — e nessuno sa più bene chi comanda.";
+  const fac=Object.values(S.choices).filter(x=>x==="facile").length, tot=Object.values(S.choices).length;
+  let h=`<p>Non c'è un bivio, qui. Questo capitolo non lo scegli: lo hai già scritto tu, scelta dopo scelta.</p>
+   <p class="signal">In ogni capitolo, un pezzo alla volta, avevamo detto: «sì, fai tu». Questa è la somma di tutti quei sì.</p>
+   <p>${v}</p>
+   <div class="bivio"><div class="q">Il tuo 2039</div>
+   <p>Hai scelto la strada comoda <b>${fac} volte su ${tot}</b>.</p>`;
+  if(S.fired.length){ h+=`<p>Lungo il cammino si sono saldate queste cose:</p>`;
+    S.fired.forEach(i=>h+=`<div class="fired ${INTRECCI[i].kind}">${INTRECCI[i].txt}</div>`);
+  } else h+=`<p>Nessun intreccio si è saldato: non hai lasciato che due scelte si sommassero fino in fondo, né in bene né in male.</p>`;
+  h+=`<p style="margin-top:1.4em;color:var(--accent)">E voi, del 2026 — che siete arrivati fin qui — cosa fareste diversamente?</p></div>`;
+  b.innerHTML=h;
+}
+
+// contatore animato quando il capitolo compare
+function runCounters(root){
+  root.querySelectorAll(".counter:not([data-run])").forEach(el=>{
+    el.dataset.run=1; const to=+el.dataset.to, unit=el.dataset.unit||""; let n=0;
+    const step=()=>{n+=Math.ceil(to/40); if(n>=to)n=to; el.childNodes[0].nodeValue=n.toLocaleString('it-IT')+unit; if(n<to)requestAnimationFrame(step);};
+    // parte quando entra in vista
+    new IntersectionObserver((es,ob)=>es.forEach(e=>{if(e.isIntersecting){step();ob.disconnect();}}),{threshold:.5}).observe(el);
+  });
+}
+
+runCounters(story.children[0]);
+renderPanel();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "libro-vivo-2039",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Il Libro Vivo del 2039 — MVP multiplayer real-time (SIIDRO 2026)",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node server/engine.test.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^7.0.4",
+    "fastify": "^4.28.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5"
+  }
+}

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il Libro Vivo del 2039 — Main Screen</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #fx { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  .layout { position: relative; z-index: 3; min-height: 100vh; display: flex; }
+  main { flex: 1; padding: var(--sp-xl); max-width: 60vw; }
+  aside { width: 34vw; padding: var(--sp-xl) var(--sp-lg); border-left: 1px solid var(--wire); }
+
+  /* lobby */
+  #lobby { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--sp-md); }
+  #qr { width: min(42vh, 360px); height: min(42vh, 360px); border-radius: 16px; border: 1px solid var(--wire); background: #fff; padding: 14px; }
+  .count { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem,6vw,4rem); color: var(--ochre); }
+
+  /* voting poles */
+  .poles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-lg); margin-top: var(--sp-lg); }
+  .pole { border: 1px solid var(--wire); border-radius: 16px; padding: var(--sp-md); min-height: 34vh; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
+  .pole.facile { border-color: var(--terra); }
+  .pole.difficile { border-color: var(--ochre); }
+  .pole.win { box-shadow: 0 0 0 2px currentColor inset; }
+  .pole.facile.win { color: var(--terra); }
+  .pole.difficile.win { color: var(--ochre); }
+  .pole .opt { font-family: var(--font-serif); font-size: clamp(1rem,1.6vw,1.4rem); color: var(--white); }
+  .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem,7vw,5rem); }
+  .beat { margin: 1em 0; }
+  .agg { display: flex; justify-content: space-between; border-bottom: 1px solid var(--wire); padding: 0.4em 0; font-size: 0.9rem; }
+  .agg b { color: var(--ochre); }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+
+<!-- LOBBY -->
+<div id="lobby" class="wrap">
+  <div class="year">Next 5000 Days · SIIDRO 2026</div>
+  <h1 class="hero">Il Libro Vivo<br>del 2039</h1>
+  <p class="muted">Inquadra il codice per entrare. Poi segui lo schermo.</p>
+  <img id="qr" alt="QR di accesso">
+  <div><span class="count" id="lobbyCount">0</span> <span class="muted">lettori collegati</span></div>
+</div>
+
+<!-- GIOCO -->
+<div id="game" class="layout wrap hidden">
+  <main>
+    <div class="year" id="chYear"></div>
+    <h2 id="chTitle"></h2>
+    <div id="chBody"></div>
+
+    <div id="voteArea" class="hidden">
+      <h2 id="voteQ" style="font-size:clamp(1.5rem,3vw,2.4rem)"></h2>
+      <div class="poles">
+        <div class="pole facile" id="poleFacile"><div class="opt"></div><div class="n">0</div></div>
+        <div class="pole difficile" id="poleDifficile"><div class="opt"></div><div class="n">0</div></div>
+      </div>
+    </div>
+  </main>
+
+  <aside>
+    <div class="worldname" id="worldName">In bilico</div>
+    <div class="muted" id="worldSub"></div>
+    <div class="delega-wrap">
+      <div class="delega-lab"><span>Mani sul volante</span><span>Pilota automatico</span></div>
+      <div class="track"><i id="delegaFill" style="width:50%"></i></div>
+    </div>
+    <div class="muted" id="progress" style="font-size:0.8rem"></div>
+    <div id="firedList" style="margin-top:var(--sp-md)"></div>
+    <div id="counter" class="count" style="margin-top:var(--sp-md)"></div>
+  </aside>
+</div>
+
+<!-- FINALE -->
+<div id="ended" class="layout wrap hidden">
+  <main>
+    <div class="year">2038 → 2039</div>
+    <h2>Quel giorno smisero di chiederci permesso</h2>
+    <p id="verdict" style="font-size:clamp(1.1rem,1.8vw,1.5rem)"></p>
+    <div id="endedFired" style="margin-top:var(--sp-md)"></div>
+    <p class="muted" style="margin-top:var(--sp-lg)">Controllate il telefono: c'è il vostro 2039.</p>
+  </main>
+  <aside>
+    <div class="worldname" id="endName"></div>
+    <div class="muted" id="consensus" style="margin-bottom:var(--sp-md)"></div>
+    <div class="year">Come ha votato la sala</div>
+    <div id="aggregates" style="margin-top:var(--sp-sm)"></div>
+  </aside>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
