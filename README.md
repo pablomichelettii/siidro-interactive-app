@@ -41,6 +41,16 @@ Tre superfici (stesso server, host = IP LAN della macchina in sala):
   hostname -I                # Linux
   # apri http://<ip>:3000/?role=main → i telefoni scansionano il QR
   ```
+- **Load test** (N partecipanti finti che si connettono, entrano e votano ogni bivio, con la regia pilotata in automatico):
+  ```bash
+  npm run loadtest -- 80            # veloce, pura verifica di carico
+  npm run loadtest -- 30 5         # DEMO guardabile: 30 utenti, 5s per fase
+  # contro un server remoto / con token regia:
+  URL=https://libro.tuodominio.it DIRECTOR_TOKEN=xxx npm run loadtest -- 120
+  ```
+  - **2° argomento = secondi per fase** (lettura capitolo + finestra di voto). `0` = full speed. Durata partita ≈ `24 × secondi` (12 bivi × 2 fasi). Con ritmo > 0 i voti arrivano scaglionati → apri `…/?role=main` e guardi le particelle migrare a poco a poco.
+  - Override fini: `READ_MS` (sosta sul capitolo) e `VOTE_MS` (finestra di voto), in millisecondi.
+  - Riporta connessioni riuscite, voti/latenza per round ed esito. Verificato fino a 200 client in locale (~40ms/round). NB: resetta e guida la sessione, non lanciarlo durante un evento reale.
 
 ## Deploy — evento in sala (LAN, consigliato)
 Per l'evento la LAN è la scelta più robusta: offline, bassa latenza, nessuna dipendenza da internet.

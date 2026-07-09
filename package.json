@@ -5,7 +5,8 @@
   "description": "Il Libro Vivo del 2039 — MVP multiplayer real-time (SIIDRO 2026)",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node server/engine.test.js"
+    "test": "node server/engine.test.js",
+    "loadtest": "node loadtest/loadtest.mjs"
   },
   "dependencies": {
     "@fastify/static": "^7.0.4",
@@ -13,5 +14,8 @@
     "gsap": "^3.15.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5"
   }
 }
