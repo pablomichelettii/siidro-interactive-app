@@ -120,7 +120,48 @@ function beatHTML(b) {
   if (typeof b === "string") return `<p class="beat">${b}</p>`;
   if (b.sig) return `<p class="signal">${b.sig}</p>`;
   if (b.counter) return `<div class="counter" data-to="${b.counter.to}" data-unit="${b.counter.unit || ""}">0<small>${b.counter.label}</small></div>`;
+  if (b.heatgrid) { const h = b.heatgrid;
+    return `<figure class="heatgrid" data-hot="${h.hot}" aria-label="${h.hot} ${h.label}">`
+      + `<div class="hg-cal">${heatCells(h.from, h.days, h.hot)}</div>`
+      + `<figcaption><b class="hg-count">0</b> ${h.label}</figcaption></figure>`;
+  }
   return "";
+}
+// Calendario del caldo: una RIGA per mese (etichettata), una COLONNA per giorno 1–31.
+// I giorni caldi sono addensati a metà stagione (fine luglio) con qualche tregua: look di ondata.
+// ponytail: distribuzione illustrativa deterministica, non dati reali.
+const MONTHS_IT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+function heatCells(fromISO, days, hot) {
+  const center = days * 0.52;                                                    // picco: fine luglio
+  const order = [...Array(days).keys()].sort((a, b) => Math.abs(a - center) - Math.abs(b - center));
+  const hotSet = new Set();
+  for (const i of order) { if (hotSet.size >= hot) break; if (i % 9 === 3) continue; hotSet.add(i); } // qualche tregua
+  for (const i of order) { if (hotSet.size >= hot) break; hotSet.add(i); }                            // completa a quota
+  const d = new Date(fromISO), end = new Date(fromISO); end.setDate(end.getDate() + days);
+  let html = "", idx = 0;
+  while (d < end) {                                                              // una riga per mese
+    const m = d.getMonth(), y = d.getFullYear(), inMonth = new Date(y, m + 1, 0).getDate();
+    html += `<span class="hg-mon">${MONTHS_IT[m]}</span>`;
+    for (let dm = 1; dm <= 31; dm++) {                                           // 31 colonne fisse
+      if (dm <= inMonth && d < end && d.getDate() === dm) {
+        html += `<i class="hg-cell${hotSet.has(idx) ? " hot" : ""}"></i>`;
+        idx++; d.setDate(d.getDate() + 1);
+      } else html += `<i class="hg-pad"></i>`;                                   // giorno inesistente o fuori range
+    }
+  }
+  return html;
+}
+function runHeatGrid() {
+  document.querySelectorAll("#chBody .heatgrid").forEach(fig => {
+    const cells = fig.querySelectorAll(".hg-cell"), hot = fig.querySelectorAll(".hg-cell.hot");
+    const countEl = fig.querySelector(".hg-count"), target = +fig.dataset.hot;
+    if (REDUCED || !G) { hot.forEach(c => c.classList.add("on")); countEl.textContent = fmtNum(target); return; }
+    const dur = hot.length * 0.02 + 0.3, o = { n: 0 };
+    G.timeline()
+      .from(cells, { opacity: 0, scale: 0.3, transformOrigin: "50% 50%", duration: 0.25, ease: "power1.out", stagger: { each: 0.01, from: "start" } })
+      .to(hot, { backgroundColor: "#e18e74", boxShadow: "0 0 8px #e18e74", duration: 0.3, ease: "power1.out", stagger: { each: 0.02, from: "start" } }) // il rosso si accende in ordine cronologico
+      .to(o, { n: target, duration: dur, ease: "none", onUpdate: () => countEl.textContent = fmtNum(o.n) }, "<"); // il contatore sale in sincrono
+  });
 }
 function firedHTML(list) {
   return list.length ? list.map(f => `<div class="fired ${f.kind}">${f.txt}</div>`).join("")
@@ -133,21 +174,19 @@ function runCounters() {
     const o = { n: 0 };
     G.to(o, { n: to, duration: 1.4, ease: "power2.out", onUpdate: () => { el.childNodes[0].nodeValue = Math.round(o.n).toLocaleString("it-IT") + unit; } });
   });
+  runHeatGrid();
 }
 const fmtNum = (n) => Math.round(n).toLocaleString("it-IT");
 const fmtDate = (iso) => new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
 const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 
-function setHeader(days, dateStr) {
-  $("hDays").textContent = fmtNum(days); $("hDate").textContent = dateStr;
-  $("dayHeader").classList.remove("hidden");
-}
-
 // --- timeline scrollabile ------------------------------------------------
 const PPD = 4;              // pixel per giorno (spaziatura del nastro)
 const START_HOLD = 0.55;    // pausa sul punto di partenza (fa vedere lo 0)
 const SCROLL_DUR = 2.4;     // durata dello scorrimento
-let trackBuilt = false;
+const WHEEL_SCALE = 4.2;    // quanto la wheel è più grande del titolo a riposo (calibrabile)
+const WHEEL_CY = 0.42;      // centro verticale della wheel, in frazione di viewport
+let trackBuilt = false, titleShown = false;
 function buildTrack(startISO, endDays) {
   if (trackBuilt) return;
   const track = $("iTrack"); const start = new Date(startISO);
@@ -165,41 +204,44 @@ function buildTrack(startISO, endDays) {
   track.innerHTML = html; trackBuilt = true;
 }
 
-// La timeline scorre sotto un indicatore fisso: le date passano al centro,
-// il numero dei giorni conta in sincrono, si parte da fromDays e si ferma su toDays.
+// Un solo elemento (#iReadout) fa da titolo persistente in alto e, al cambio
+// capitolo, cresce al centro come "wheel", conta i giorni, e torna titolo.
+// È lo STESSO elemento che scala → titolo e wheel hanno sempre proporzioni
+// coerenti, nessuno scambio, nessuno scatto di dimensioni.
 function playInterstitial(fromDays, toDays, dateISO, startISO, endISO) {
   const valid = dateISO && !isNaN(new Date(dateISO)) && isFinite(fromDays) && isFinite(toDays);
-  if (REDUCED || !G || !valid) { if (valid) setHeader(toDays, fmtDate(dateISO)); return Promise.resolve(); }
+  if (!valid) return Promise.resolve();
   buildTrack(startISO, daysBetween(startISO, endISO));
+  const readout = $("iReadout"), track = $("iTrack"), daysEl = $("iDays"), dateEl = $("iDate");
+  const startMs = new Date(startISO).getTime();
+  const setAt = (day) => {
+    track.style.transform = `translateX(${-day * PPD}px)`;        // scorre il nastro
+    daysEl.textContent = fmtNum(day);
+    dateEl.textContent = fmtDate(new Date(startMs + Math.round(day) * 86400000));
+  };
+  if (REDUCED || !G) { readout.style.opacity = 1; setAt(toDays); titleShown = true; return Promise.resolve(); }
   return new Promise((resolve) => {
-    const box = $("interstitial"), track = $("iTrack"), readout = $("iReadout"), daysEl = $("iDays"), dateEl = $("iDate");
-    const startMs = new Date(startISO).getTime();
-    const setAt = (day) => {
-      track.style.transform = `translateX(${-day * PPD}px)`;      // scorre il nastro
-      daysEl.textContent = fmtNum(day);
-      dateEl.textContent = fmtDate(new Date(startMs + Math.round(day) * 86400000));
-    };
+    const genesis = !titleShown;                                   // 1° capitolo: nessun titolo precedente, la wheel nasce
+    G.set(readout, { clearProps: "transform" });                   // stato a riposo (titolo) per misurarlo
+    G.set(readout, { opacity: genesis ? 0 : 1 });
+    setAt(fromDays);                                               // il titolo mostra GIÀ i giorni di partenza → nessun numero che salta
+    const r = readout.getBoundingClientRect();                     // misura il titolo → trasformazione verso il centro (wheel)
+    const tx = innerWidth / 2 - (r.left + r.width / 2);
+    const ty = innerHeight * WHEEL_CY - (r.top + r.height / 2);
     const proxy = { d: fromDays };
-    const genesis = fromDays === 0;                                // primissima animazione: nascita del giorno zero
-    G.set(box, { display: "flex", opacity: 1 });
-    setAt(fromDays);                                               // 0 · 21 ottobre 2026
-    const tl = G.timeline({ onComplete: () => { G.set(box, { display: "none" }); resolve(); } });
-    if (genesis) {
-      G.set("#iTimeline", { opacity: 0 });
-      G.set(readout, { opacity: 0, scale: 0.7, y: 24 });
-      tl.to(readout, { opacity: 1, scale: 1, y: 0, duration: 0.9, ease: "back.out(1.5)" })           // il giorno zero appare
-        .to("#iTimeline", { opacity: 1, duration: 0.6, ease: "power2.out" }, "-=0.35")               // la timeline nasce
-        .to({}, { duration: START_HOLD + 0.4 });                                                     // resta sul giorno zero
-    } else {
-      G.set("#iTimeline", { opacity: 1 });
-      G.set(readout, { opacity: 1, scale: 1, y: 0 });
-      tl.to({}, { duration: START_HOLD });
-    }
-    tl.to(proxy, { d: toDays, duration: SCROLL_DUR, ease: "power2.inOut", onUpdate: () => setAt(proxy.d) }) // scorre come una timeline
-      .to({}, { duration: 0.5 })                                                                     // stop sul target
-      .add(() => setHeader(toDays, fmtDate(dateISO)))
-      .to(readout, { y: "-32vh", scale: 0.44, opacity: 0, duration: 0.7, ease: "power2.inOut" })     // sale in alto
-      .to("#iTimeline", { opacity: 0, duration: 0.5 }, "<");
+    G.timeline({ onComplete: () => { titleShown = true; resolve(); } })
+      // TITOLO → WHEEL: cresce al centro; sfondo e timeline compaiono insieme
+      .to("#iBg", { opacity: 1, duration: 0.7, ease: "power2.out" }, 0)
+      .to(readout, { opacity: 1, x: tx, y: ty, scale: WHEEL_SCALE, duration: 0.9, ease: "power3.inOut" }, 0)
+      .to("#iTimeline", { opacity: 1, duration: 0.6, ease: "power2.out" }, genesis ? 0.35 : 0.2)
+      .to({}, { duration: genesis ? START_HOLD + 0.4 : START_HOLD })
+      // CONTEGGIO: la timeline scorre e il numero sale da fromDays a toDays
+      .to(proxy, { d: toDays, duration: SCROLL_DUR, ease: "power2.inOut", onUpdate: () => setAt(proxy.d) })
+      .to({}, { duration: 0.4 })                                   // stop sul target
+      // WHEEL → TITOLO: torna piccola in alto; sfondo e timeline svaniscono insieme
+      .to(readout, { x: 0, y: 0, scale: 1, duration: 0.9, ease: "power3.inOut" })
+      .to("#iBg", { opacity: 0, duration: 0.6, ease: "power2.in" }, "<")
+      .to("#iTimeline", { opacity: 0, duration: 0.5, ease: "power2.in" }, "<");
   });
 }
 
@@ -289,7 +331,12 @@ socket.on("main:sync", (s) => {
   $("game").classList.toggle("hidden", !inGame);
   $("ended").classList.toggle("hidden", s.phase !== "ended");
   $("lobbyCount").textContent = s.connected;
-  if (s.phase === "lobby") { $("dayHeader").classList.add("hidden"); bodyIndex = -1; lastIndex = -1; }
+  if (s.phase === "lobby") {
+    bodyIndex = -1; lastIndex = -1; titleShown = false;   // reset: la lobby non mostra nulla, la prossima wheel "nasce"
+    // NESSUN interludio in lobby: l'animazione dei giorni parte al 1° capitolo (lobby → inizio, 0 → N giorni).
+    if (G && !REDUCED) G.set(["#iReadout", "#iBg", "#iTimeline"], { opacity: 0, clearProps: "transform" });
+    else $("iReadout").style.opacity = 0;
+  }
 
   // pannello di stato (sotto l'overlay): sempre aggiornato
   if (inGame) {

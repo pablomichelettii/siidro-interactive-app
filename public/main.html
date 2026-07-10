@@ -9,14 +9,17 @@
   #fx { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; }
   .layout { position: relative; z-index: 3; min-height: 100vh; display: flex; }
 
-  /* interludio "giorni nel futuro": timeline orizzontale che scorre */
-  #interstitial { position: fixed; inset: 0; z-index: 7; display: none; flex-direction: column; align-items: center; justify-content: center; gap: clamp(1.5rem, 5vh, 4rem);
-    background-color: var(--bg-slate); background-image: radial-gradient(circle at 50% 38%, var(--ochre-a) 0%, var(--slate-a) 58%, var(--bg-slate) 100%); }
-  #iReadout { text-align: center; will-change: transform, opacity; }
-  #iDays { font-family: var(--font-display); font-weight: 800; color: var(--ochre); line-height: 0.9; letter-spacing: 0.02em; font-size: clamp(3.5rem, 13vw, 11rem); }
-  #iDaysLabel { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.22em; color: var(--muted); font-size: clamp(0.7rem, 1.4vw, 1rem); margin-top: 0.5em; }
-  #iDate { font-family: var(--font-serif); color: var(--white); font-size: clamp(1.3rem, 3.4vw, 2.4rem); margin-top: 0.4em; }
-  #iTimeline { position: relative; width: 100%; height: 130px; overflow: hidden;
+  /* INTERLUDIO "giorni nel futuro" — un solo #iReadout: titolo persistente in alto
+     a riposo, che al cambio capitolo cresce al centro (wheel), conta, e torna titolo.
+     Dimensioni qui = stato TITOLO; la wheel è lo stesso elemento scalato via JS. */
+  #iBg { position: fixed; inset: 0; z-index: 5; opacity: 0; pointer-events: none;
+    background-color: var(--bg-slate); background-image: radial-gradient(circle at 50% 42%, var(--ochre-a) 0%, var(--slate-a) 58%, var(--bg-slate) 100%); }
+  #iReadout { position: fixed; top: 14px; left: 0; right: 0; z-index: 7; text-align: center; opacity: 0; pointer-events: none;
+    transform-origin: 50% 50%; will-change: transform, opacity; }
+  #iDate { font-family: var(--font-serif); color: var(--white); font-size: clamp(0.9rem, 1.7vw, 1.3rem); line-height: 1.15; margin-bottom: 0.12em; }
+  #iDays { font-family: var(--font-display); font-weight: 800; color: var(--ochre); line-height: 0.95; letter-spacing: 0.02em; font-size: clamp(1.5rem, 3.2vw, 2.6rem); }
+  #iDaysLabel { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); font-size: clamp(0.5rem, 0.95vw, 0.72rem); margin-top: 0.3em; }
+  #iTimeline { position: fixed; left: 0; right: 0; top: 62%; z-index: 6; height: 130px; overflow: hidden; opacity: 0; pointer-events: none;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
             mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
   #iTrack { position: absolute; left: 50%; top: 50%; height: 0; will-change: transform; }
@@ -25,11 +28,18 @@
   #iTrack .tick .lab { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.12em; color: var(--muted); }
   #iPlayhead { position: absolute; left: 50%; top: 50%; width: 2px; height: 64px; background: var(--ochre); transform: translate(-50%, -50%); box-shadow: 0 0 16px var(--ochre); }
   #iPlayhead::before { content: ""; position: absolute; left: 50%; top: -8px; width: 10px; height: 10px; border-radius: 50%; background: var(--ochre); transform: translateX(-50%); box-shadow: 0 0 12px var(--ochre); }
-  #dayHeader { position: fixed; top: 16px; left: 0; right: 0; z-index: 6; text-align: center; font-family: var(--font-display); font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.14em; font-size: clamp(0.7rem, 1.3vw, 0.95rem); color: var(--muted); }
-  #dayHeader b { color: var(--ochre); }
-  #dayHeader span { color: var(--white); font-family: var(--font-serif); text-transform: none; letter-spacing: 0; }
+
+  /* calendario del caldo: una riga per mese (etichettata), 31 colonne per i giorni. I giorni >40° arrossano */
+  .heatgrid { margin: 1.3em 0; }
+  .hg-cal { display: grid; grid-template-columns: max-content repeat(31, 1fr); gap: 3px; align-items: center; max-width: 540px; }
+  .hg-mon { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7rem; color: var(--muted); text-align: right; padding-right: 8px; }
+  .hg-cell, .hg-pad { aspect-ratio: 1; border-radius: 2px; }
+  .hg-cell { background: rgba(236,174,49,0.16); }
+  .hg-cell.hot.on { background: var(--terra); box-shadow: 0 0 8px var(--terra); }
+  .heatgrid figcaption { margin-top: 0.7em; font-family: var(--font-serif); color: var(--muted); font-size: 0.95rem; }
+  .heatgrid .hg-count { font-family: var(--font-display); font-weight: 800; color: var(--terra); font-size: 1.7rem; font-variant-numeric: tabular-nums; }
   main { flex: 1; padding: var(--sp-xl); max-width: 60vw; }
+  #game { justify-content: center; }   /* aside nascosto → colonna centrata */
   aside { width: 34vw; padding: var(--sp-xl) var(--sp-lg); border-left: 1px solid var(--wire); }
 
   /* lobby */
@@ -55,19 +65,18 @@
 <body>
 <canvas id="fx"></canvas>
 
-<!-- INTERLUDIO GIORNI (timeline che scorre) -->
-<div id="interstitial">
-  <div id="iReadout">
-    <div id="iDays">0</div>
-    <div id="iDaysLabel">giorni nel futuro</div>
-    <div id="iDate"></div>
-  </div>
-  <div id="iTimeline">
-    <div id="iTrack"></div>
-    <div id="iPlayhead"></div>
-  </div>
+<!-- INTERLUDIO GIORNI — sfondo + timeline (visibili solo durante il conteggio)
+     e il readout, unico elemento: titolo in alto a riposo, wheel al centro in azione -->
+<div id="iBg"></div>
+<div id="iTimeline">
+  <div id="iTrack"></div>
+  <div id="iPlayhead"></div>
 </div>
-<div id="dayHeader" class="hidden"><b id="hDays"></b> giorni nel futuro · <span id="hDate"></span></div>
+<div id="iReadout">
+  <div id="iDate"></div>
+  <div id="iDays">0</div>
+  <div id="iDaysLabel">giorni nel futuro</div>
+</div>
 
 <!-- LOBBY -->
 <div id="lobby" class="wrap">
@@ -94,7 +103,8 @@
     </div>
   </main>
 
-  <aside>
+  <!-- pannello scelte partecipanti: nascosto per ora (contenuti ancora aggiornati dal sync, non rimuovere) -->
+  <aside class="hidden">
     <div class="worldname" id="worldName">In bilico</div>
     <div class="muted" id="worldSub"></div>
     <div class="delega-wrap">

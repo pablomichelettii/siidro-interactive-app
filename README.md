@@ -116,7 +116,18 @@ sudo ufw allow 'Nginx Full'         # 80 + 443
 - Regia (solo operatore) → `https://libro.tuodominio.it/?role=director&k=una-stringa-lunga-e-segreta`
 - Device → il QR sul Main Screen
 
-Aggiornare dopo un `git pull`: `pm2 restart libro`.
+## Aggiornare sul server (deploy attuale)
+Setup in produzione: `/var/www/next5000days` · pm2 `next5000days` · dietro nginx su `next5000days.pablomicheletti.it`.
+```bash
+cd /var/www/next5000days
+git pull
+npm install            # solo se sono cambiate le dipendenze (package.json)
+pm2 restart next5000days
+```
+- `pm2 restart` mantiene `PORT` e `DIRECTOR_TOKEN` impostati al primo avvio.
+- Le modifiche solo-frontend (`public/…`) sono già servite dopo il `git pull`: basta un hard-reload del browser, il `pm2 restart` non è indispensabile (ma non fa danni).
+- Modifiche a `server/…`: il `pm2 restart` è necessario.
+- Verifica: `pm2 status next5000days` e `pm2 logs next5000days --lines 30`.
 
 ## Architettura (essenziale)
 - Un processo Node (Fastify + Socket.IO). Stato **in memoria**, **anonimo**, **effimero** (niente DB).

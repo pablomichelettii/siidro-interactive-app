@@ -9,10 +9,13 @@ const O = (t, tag, delega, axis, d, c) => ({ t, tag, delega, axis, d, c });
 
 export const CHAPTERS = [
   { id: "clima", year: "2027", title: "L'estate in cui ci siamo accorti del clima",
-    beats: ["L'estate non finisce più. Settembre ha il colore di luglio.",
+    beats: ["L'estate non finisce più: settembre ha il colore di luglio.",
+      "Il rapporto stava nel terzo cassetto, sotto i moduli per i rimborsi. L'aveva scritto qualcuno nel 2021 — un tecnico di cui nessuno ricordava il nome — e diceva tutto: i giorni sopra i quaranta gradi nel 2025, nel 2027, nel 2030. Colonne di numeri ordinate, gentili. Una previsione così esatta che, riletta adesso, sembrava un ricatto.",
+      "Marta lo trovò per caso, cercando un timbro. Fuori, il termometro della farmacia segnava 41 alle nove del mattino. Il condizionatore dell'ufficio faceva il rumore di una cosa che sta per arrendersi.",
       { sig: "In un cassetto del Comune c'è un report del 2021. Aveva previsto tutto, anno per anno. Nessuno l'aveva mai aperto." },
-      { counter: { to: 61, label: "giorni sopra i 40°C in Toscana, quest'anno" } },
-      "La città non è costruita per questo. E bisogna decidere. In fretta."],
+      { heatgrid: { from: "2027-04-01", days: 183, hot: 61, label: "giorni sopra i 40°C in Toscana, quest'anno" } },
+      "Nessuno aveva fatto niente di male. Avevano solo, ogni volta, scelto la cosa comoda: un grado in meno in casa, una riunione rimandata, una firma per l'anno prossimo. La catastrofe non è arrivata con un botto: è arrivata come arriva agosto, un giorno alla volta, e sempre uguale al precedente.",
+      "La città non è costruita per questo. E adesso bisogna decidere. In fretta."],
     q: "L'estate è ingestibile. Come rispondiamo?",
     opts: [O("Ci adattiamo: aria condizionata per tutti, e si tira avanti come prima.", "facile", 12, "equita", -1, "La sala sceglie il comodo. La rete elettrica comincia a soffrire, ma oggi non fa male a nessuno."),
       O("Ci trasformiamo: cambiamo come vivere le città. Costa, e fa male adesso.", "difficile", -12, "equita", 1, "Meno comodità subito — ma la città resta una cosa nostra.")] },
