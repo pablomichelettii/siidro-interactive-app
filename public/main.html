@@ -14,11 +14,14 @@
      Dimensioni qui = stato TITOLO; la wheel è lo stesso elemento scalato via JS. */
   #iBg { position: fixed; inset: 0; z-index: 5; opacity: 0; pointer-events: none;
     background-color: var(--bg-slate); background-image: radial-gradient(circle at 50% 42%, var(--ochre-a) 0%, var(--slate-a) 58%, var(--bg-slate) 100%); }
+  /* Dimensioni qui = stato WHEEL (grande): il render nativo è a piena risoluzione,
+     così la wheel (scale 1) è nitida; il titolo è lo stesso elemento RIMPICCIOLITO
+     (downscale → resta nitido). Scalare in su un render piccolo, invece, sgrana. */
   #iReadout { position: fixed; top: 14px; left: 0; right: 0; z-index: 7; text-align: center; opacity: 0; pointer-events: none;
     transform-origin: 50% 50%; will-change: transform, opacity; }
-  #iDate { font-family: var(--font-serif); color: var(--white); font-size: clamp(0.9rem, 1.7vw, 1.3rem); line-height: 1.15; margin-bottom: 0.12em; }
-  #iDays { font-family: var(--font-display); font-weight: 800; color: var(--ochre); line-height: 0.95; letter-spacing: 0.02em; font-size: clamp(1.5rem, 3.2vw, 2.6rem); }
-  #iDaysLabel { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); font-size: clamp(0.5rem, 0.95vw, 0.72rem); margin-top: 0.3em; }
+  #iDate { font-family: var(--font-serif); color: var(--white); font-size: clamp(3.8rem, 7.1vw, 5.5rem); line-height: 1.15; margin-bottom: 0.12em; }
+  #iDays { font-family: var(--font-display); font-weight: 800; color: var(--ochre); line-height: 0.95; letter-spacing: 0.02em; font-size: clamp(6.3rem, 13.4vw, 10.9rem); }
+  #iDaysLabel { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); font-size: clamp(2.1rem, 4vw, 3rem); margin-top: 0.3em; }
   #iTimeline { position: fixed; left: 0; right: 0; top: 62%; z-index: 6; height: 130px; overflow: hidden; opacity: 0; pointer-events: none;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
             mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }

@@ -185,6 +185,7 @@ const PPD = 4;              // pixel per giorno (spaziatura del nastro)
 const START_HOLD = 0.55;    // pausa sul punto di partenza (fa vedere lo 0)
 const SCROLL_DUR = 2.4;     // durata dello scorrimento
 const WHEEL_SCALE = 4.2;    // quanto la wheel è più grande del titolo a riposo (calibrabile)
+const REST_SCALE = 1 / WHEEL_SCALE;   // il titolo è la wheel rimpicciolita (downscale = nitido)
 const WHEEL_CY = 0.42;      // centro verticale della wheel, in frazione di viewport
 let trackBuilt = false, titleShown = false;
 function buildTrack(startISO, endDays) {
@@ -219,27 +220,34 @@ function playInterstitial(fromDays, toDays, dateISO, startISO, endISO) {
     daysEl.textContent = fmtNum(day);
     dateEl.textContent = fmtDate(new Date(startMs + Math.round(day) * 86400000));
   };
-  if (REDUCED || !G) { readout.style.opacity = 1; setAt(toDays); titleShown = true; return Promise.resolve(); }
+  // stato TITOLO = wheel rimpicciolita in alto; stato WHEEL = scala 1 (nativa, nitida) al centro.
+  const restY = (r) => r.height * REST_SCALE / 2 - r.height / 2;   // il titolo (ridotto) si ancora a top:14px
+  const wheelY = (r) => innerHeight * WHEEL_CY - (r.top + r.height / 2);
+  if (REDUCED || !G) {
+    setAt(toDays);
+    const r = readout.getBoundingClientRect();
+    readout.style.transform = `translateY(${restY(r)}px) scale(${REST_SCALE})`;
+    readout.style.opacity = 1; titleShown = true; return Promise.resolve();
+  }
   return new Promise((resolve) => {
     const genesis = !titleShown;                                   // 1° capitolo: nessun titolo precedente, la wheel nasce
-    G.set(readout, { clearProps: "transform" });                   // stato a riposo (titolo) per misurarlo
-    G.set(readout, { opacity: genesis ? 0 : 1 });
+    G.set(readout, { clearProps: "transform" });                   // torna a dimensione nativa (wheel) per misurarla
     setAt(fromDays);                                               // il titolo mostra GIÀ i giorni di partenza → nessun numero che salta
-    const r = readout.getBoundingClientRect();                     // misura il titolo → trasformazione verso il centro (wheel)
-    const tx = innerWidth / 2 - (r.left + r.width / 2);
-    const ty = innerHeight * WHEEL_CY - (r.top + r.height / 2);
+    const r = readout.getBoundingClientRect();
+    const tY = restY(r), wY = wheelY(r);
     const proxy = { d: fromDays };
+    G.set(readout, { x: 0, y: tY, scale: REST_SCALE, opacity: genesis ? 0 : 1 });   // parte come titolo (o nasce, se genesis)
     G.timeline({ onComplete: () => { titleShown = true; resolve(); } })
-      // TITOLO → WHEEL: cresce al centro; sfondo e timeline compaiono insieme
+      // TITOLO → WHEEL: cresce al centro (fino a scala 1 = nitida); sfondo e timeline compaiono insieme
       .to("#iBg", { opacity: 1, duration: 0.7, ease: "power2.out" }, 0)
-      .to(readout, { opacity: 1, x: tx, y: ty, scale: WHEEL_SCALE, duration: 0.9, ease: "power3.inOut" }, 0)
+      .to(readout, { opacity: 1, y: wY, scale: 1, duration: 0.9, ease: "power3.inOut" }, 0)
       .to("#iTimeline", { opacity: 1, duration: 0.6, ease: "power2.out" }, genesis ? 0.35 : 0.2)
       .to({}, { duration: genesis ? START_HOLD + 0.4 : START_HOLD })
       // CONTEGGIO: la timeline scorre e il numero sale da fromDays a toDays
       .to(proxy, { d: toDays, duration: SCROLL_DUR, ease: "power2.inOut", onUpdate: () => setAt(proxy.d) })
       .to({}, { duration: 0.4 })                                   // stop sul target
       // WHEEL → TITOLO: torna piccola in alto; sfondo e timeline svaniscono insieme
-      .to(readout, { x: 0, y: 0, scale: 1, duration: 0.9, ease: "power3.inOut" })
+      .to(readout, { y: tY, scale: REST_SCALE, duration: 0.9, ease: "power3.inOut" })
       .to("#iBg", { opacity: 0, duration: 0.6, ease: "power2.in" }, "<")
       .to("#iTimeline", { opacity: 0, duration: 0.5, ease: "power2.in" }, "<");
   });
