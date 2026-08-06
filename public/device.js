@@ -35,6 +35,7 @@ function render(view) {
   show("wait", !voting && !fine);
   show("voteBox", voting);
   show("endBox", fine);
+  document.body.classList.toggle("fine", fine);
   const ended = fine;
 
   if (voting) {
@@ -59,12 +60,27 @@ function render(view) {
     link.href = e.link || "#";
     link.style.display = e.link ? "" : "none";
     show("epilogoLink", !!e.link);
-    $("roomIndice").textContent = e.indice_sala == null ? "—" : e.indice_sala + "%";
-    $("youIndice").textContent = e.indice_personale == null ? "non hai votato" : e.indice_personale + "%";
-    $("youCount").textContent = `${e.voti_espressi} voti espressi su 12`;
-    // il dato più forte per un epilogo: quante volte hai provato a fermarli
-    $("youMinority").textContent = e.voti_in_minoranza
-      ? `${e.voti_in_minoranza} volte hai votato contro la maggioranza.` : "";
+    // Due righe di dodici frecce: la tua e quella della sala, incolonnate.
+    // Le caselle dove sei andato per conto tuo sono le uniche evidenziate.
+    const esc = (t) => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const freccia = (v) => v === "facile" ? "↘" : v === "difficile" ? "↗" : "·";
+    const cella = (v, s, diverso) =>
+      `<i class="${v || "saltato"}${diverso ? " diverso" : ""}" title="${esc(s.anno)} · ${esc(s.titolo)}">${freccia(v)}</i>`;
+
+    $("scelte").innerHTML =
+      `<span class="et">TU</span>` + e.scelte.map(s => cella(s.voto, s, s.minoranza)).join("")
+      + `<span class="et">SALA</span>` + e.scelte.map(s => cella(s.vinse, s, s.minoranza)).join("");
+
+    // ↘ comoda · ↗ faticosa, e il dato più forte che ha addosso
+    $("sceltePie").innerHTML =
+      `<span class="muted">↘ strada comoda · ↗ strada faticosa · · non votato</span><br>`
+      + (e.voti_espressi === 0
+        ? "Non hai votato nessun capitolo: questo mondo ti è capitato addosso."
+        : e.voti_in_minoranza
+          ? `<b>${e.voti_in_minoranza}</b> volte hai scelto diverso dalla sala — e ha vinto lei.`
+          : "Hai sempre scelto come la sala.");
+
+    $("youClimax").textContent = e.climax.nome;
     $("youVerdict").textContent = e.climax.testo;
     $("youFired").innerHTML = e.esiti.map(x =>
       `<div class="fired ${SEGNO[x.stato]}"><span class="nome">${x.nome}</span>${x.testo}</div>`).join("");

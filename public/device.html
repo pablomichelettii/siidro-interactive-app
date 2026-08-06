@@ -8,6 +8,10 @@
 <style>
   body { display: flex; }
   .screen { position: relative; z-index: 2; margin: auto; width: 100%; max-width: 520px; min-height: 100vh; padding: var(--sp-lg) var(--sp-md); display: flex; flex-direction: column; justify-content: center; gap: var(--sp-md); }
+  /* L'epilogo è più alto del viewport, e in flexbox un contenuto centrato che
+     trabocca si taglia IN CIMA — cioè proprio la prima riga. Da lì in poi si
+     parte dall'alto. */
+  body.fine .screen { justify-content: flex-start; }
   .wait { text-align: center; }
   .wait .display { font-size: 1.6rem; color: var(--ochre); margin-bottom: var(--sp-sm); }
   .vote-opt { width: 100%; text-align: left; font-family: var(--font-serif); text-transform: none; letter-spacing: 0; font-size: 1.1rem; padding: var(--sp-md); line-height: 1.4; }
@@ -17,9 +21,6 @@
   .votebar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: var(--sp-md); }
   .votebar > i { display: block; height: 100%; width: 100%; background: var(--ochre);
     transform-origin: left center; transition: transform 0.2s linear; }
-  .cmp { border: 1px solid var(--wire); border-radius: 14px; padding: var(--sp-md); }
-  .cmp .big { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; font-size: 1.3rem; }
-  .cmp .room { color: var(--terra); } .cmp .you { color: var(--ochre); }
   /* accoglienza */
   .campo { display: block; margin: var(--sp-md) 0; font-size: 0.9rem; color: var(--muted); }
   .campo input { display: block; width: 100%; margin-top: 0.5em; padding: var(--sp-sm);
@@ -30,6 +31,25 @@
   #bEntra { width: 100%; margin-top: var(--sp-sm); }
   /* l'epilogo: è la cosa che leggono, deve respirare */
   .epilogo { white-space: pre-wrap; font-size: 1.15rem; line-height: 1.7; margin: var(--sp-md) 0; }
+  /* sezioni sotto l'epilogo, separate come i blocchi di un capitolo */
+  .sez { margin-top: var(--sp-xl); padding-top: var(--sp-md); border-top: 1px solid var(--wire); }
+  .climaxNome { font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
+    font-size: 1.25rem; line-height: 1.15; margin: 0.5em 0 0.6em; }
+  /* Specchietto delle scelte: due righe di dodici frecce, tu sopra e la sala
+     sotto. Dodici righe di testo erano più lunghe dell'epilogo e se lo
+     mangiavano; così la differenza con la sala si legge in un colpo d'occhio. */
+  .griglia { display: grid; grid-template-columns: auto repeat(12, 1fr);
+    gap: 0.15em 0; align-items: center; margin-top: var(--sp-sm); }
+  .griglia .et { font-family: var(--font-display); font-weight: 700; font-size: 0.6rem;
+    letter-spacing: 0.14em; color: var(--muted); padding-right: 0.6em; }
+  .griglia i { font-style: normal; font-family: var(--font-display); font-weight: 800;
+    font-size: 1.05rem; text-align: center; line-height: 1.5; border-radius: 5px; }
+  .griglia i.facile { color: var(--terra); }
+  .griglia i.difficile { color: var(--ochre); }
+  .griglia i.saltato { color: var(--wire); }
+  /* dove è andato per conto suo: l'unica cosa evidenziata */
+  .griglia i.diverso { background: rgba(255,255,255,0.14); outline: 1px solid var(--white); }
+  #sceltePie { margin-top: var(--sp-md); font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -67,22 +87,28 @@
     <p id="voteNote" class="muted hidden" style="text-align:center">Voto registrato. Puoi ancora cambiare idea.</p>
   </div>
 
-  <!-- epilogo personale -->
+  <!-- EPILOGO — impaginato come un capitolo, in verticale:
+       il testo, poi lo specchietto delle sue scelte, poi il mondo della sala. -->
   <div id="endBox" class="hidden">
-    <div class="year">Il tuo 2040</div>
-    <!-- il testo generato: è la cosa che devono leggere, sta in cima e da sola -->
+    <div class="year">2040 · Lo Specchio</div>
+    <h2 style="font-size:1.6rem">Il tuo 2040</h2>
     <p id="epilogo" class="epilogo hidden"></p>
     <a id="epilogoLink" class="btn hidden" style="display:none">Tieni questo link</a>
-    <div class="cmp" style="margin-top:var(--sp-lg)">
-      <p>La sala ha delegato</p>
-      <div class="big room" id="roomIndice"></div>
-      <p style="margin-top:1em">Tu</p>
-      <div class="big you" id="youIndice"></div>
-      <p class="muted" id="youCount" style="margin-top:0.5em"></p>
-      <p class="muted" id="youMinority" style="margin-top:0.5em"></p>
-    </div>
-    <p id="youVerdict" style="margin-top:var(--sp-md)"></p>
-    <div id="youFired" style="margin-top:var(--sp-sm)"></div>
+
+    <!-- specchietto: cosa ha scelto lui, capitolo per capitolo -->
+    <section class="sez">
+      <div class="year">Le tue scelte, e quelle della sala</div>
+      <div class="griglia" id="scelte"></div>
+      <p class="muted" id="sceltePie"></p>
+    </section>
+
+    <!-- il mondo della sala, come già era -->
+    <section class="sez">
+      <div class="year">Il mondo che avete costruito</div>
+      <p class="climaxNome" id="youClimax"></p>
+      <p id="youVerdict"></p>
+      <div id="youFired" style="margin-top:var(--sp-md)"></div>
+    </section>
   </div>
 </div>
 

@@ -23,11 +23,19 @@ export const dataDir = () => process.env.EPILOGHI_DIR || path.join(__dirname, ".
 // OpenRouter, API OpenAI-compatibile. Niente SDK: una POST con fetch.
 const BASE = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 const KEY = process.env.OPENROUTER_API_KEY || "";
-// ponytail: slug di default da confermare sul catalogo OpenRouter — se è
-// sbagliato la chiamata fallisce e parte il fallback, che è il comportamento
-// voluto comunque. Si cambia da env senza toccare il codice.
-const MODEL = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.5";
+// Il default è deliberatamente il modello ECONOMICO: chi gira senza .env non
+// deve ritrovarsi novanta chiamate a un modello di fascia alta senza saperlo.
+// Il modello buono si sceglie apposta, in .env. Mai il contrario.
+export const MODEL_DEFAULT = "deepseek/deepseek-v4-flash-0731";
+const MODEL = process.env.OPENROUTER_MODEL || MODEL_DEFAULT;
 const TIMEOUT_MS = Number(process.env.EPILOGO_TIMEOUT_MS || 60000);
+// Il budget copre ragionamento + testo, non solo il testo. Misurato su
+// gpt-5.6-luna: 400-550 token di ragionamento PRIMA di scrivere una parola, e
+// con 600 l'epilogo usciva troncato a metà frase o non usciva affatto; a 2000
+// ne veniva tagliato ancora uno su quattro.
+// È un TETTO, non una prenotazione: si paga quello che si consuma davvero,
+// quindi tenerlo largo non costa niente e toglie di mezzo le troncature.
+const MAX_TOKENS = Number(process.env.EPILOGO_MAX_TOKENS || 4000);
 const RETENTION_GIORNI = Number(process.env.EPILOGHI_RETENTION_GIORNI || 30);
 // ponytail: sei alla volta invece delle 90 parallele della patch. I 9 minuti
 // del capitolo 13 ne bastano e avanzano, e non si rischia un 429 che
@@ -40,46 +48,78 @@ export const modelloConfigurato = () => !!KEY;
 // I vincoli stanno nel system prompt, non nel messaggio utente: così non sono
 // aggirabili da quello che arriva nei dati (Patch §8.4).
 // --------------------------------------------------------------------------
-const SYSTEM = `Scrivi l'epilogo personale di uno studente alla fine di uno spettacolo teatrale sul futuro.
+export const SYSTEM = `Scrivi l'epilogo personale di uno studente alla fine di uno spettacolo teatrale sul futuro.
 
-Il dispositivo: un archivista del 2040 ha raccontato la storia dei prossimi quattordici anni, e la sala ha votato dodici volte scegliendo ogni volta tra una strada comoda e una faticosa. Quei voti hanno costruito un mondo. Adesso ogni studente riceve sul telefono la propria giornata tipo dentro quel mondo.
+IL CONTESTO
+Nel 2040 ogni studente vive nel mondo costruito dai voti della sala, ma con la forma esatta data dalle sue decisioni personali. L'epilogo è una micro-scena intima della sua giornata tipo.
 
-COME SCRIVERE
-- In italiano, in seconda persona singolare, con registro intimo e retrospettivo.
-- Massimo 200 parole. Meglio 150 che 200.
-- Apri esattamente così: "{NOME}, nel 2040 avrai {ETA}." — lascia i segnaposto {NOME} e {ETA} letterali, non sostituirli. Poi prosegui con "Vivi in un mondo..." o una variante.
-- Concreto e sensoriale: una giornata, una stanza, un gesto, un'ora precisa. Non un comunicato sul mondo.
-- Usa gli stati degli intrecci come arredamento della giornata, non come elenco. Non nominare gli intrecci, non dire "positivo" o "negativo", non citare percentuali o numeri di voti.
+REGOLE DI SCRITTURA
+- Registro: Intimo, retrospettivo, concreto, in seconda persona singolare ("tu").
+- Lunghezza: Tra le 180 e le 220 parole.
+- Apertura tassativa: "{NOME}, nel 2040 avrai {ETA}." (lascia i segnaposto letterali). Prosegui subito calando l'azione in un momento preciso della giornata (es. "Sono le otto di sera e...", "Ti svegli con...").
+
+COME TRASFORMARE LE SCELTE IN VITA REALE (Il cuore del testo)
+Non riassumere il mondo. Scegli ESATTAMENTE DUE decisioni dello studente e incrociale in una singola scena concreta.
+1. INCARTA IL COSTO IN UN OGGETTO O IN UN GESTO:
+   - Se ha scelto la comodità o l'AI, non dire "l'algoritmo ti controlla". Mostra la mancanza di attrito: l'assenza di qualcuno con cui litigare, una parete vuota, un silenzio troppo perfetto, una risposta automatica che non ti contraddice mai.
+   - Se ha scelto di filtrare la realtà, mostra l'effetto visivo/fisico (es. camminare per strada senza incrociare lo sguardo di chi ti passa accanto).
+2. SE È STATO IN MINORANZA: Quella scelta è una ferita o un'isola. Mostra il contrasto tra ciò in cui credeva e il mondo che la maggioranza gli ha costruito intorno.
+3. NON USARE MAI le parole "intreccio", "capitolo", "positivo", "negativo", "voto", né percentuali o conteggi. (L'anno 2040 e l'età nell'apertura sono ovviamente ammessi.)
+
+STRUTTURA DELL'EPILOGO (3 ATTI)
+- ATTO 1 (I primi 30 secondi della scena): Dove si trova, che ora è, la sensazione fisica della stanza o del luogo.
+- ATTO 2 (Il costo delle scelte): L'azione principale della giornata in cui si scontrano le 2 scelte selezionate. Il lettore deve pensare: «Questo accade esattamente per via di quello che ho votato».
+- ATTO 3 (L'agentività - Ultima frase): Il mondo è andato così, ma c'è un dettaglio piccolo e ostinato che stasera dipende ancora e soltanto da lui/lei. Una decisione da prendere prima di dormire.
 
 VINCOLI ASSOLUTI
-- Mai previsioni su morte, malattia o condizioni di salute dello studente o dei suoi familiari.
-- Niente contenuti medici, psichiatrici, romantici o sessuali.
-- Niente tono moraleggiante o giudicante sulle scelte fatte: racconta le conseguenze, non emettere verdetti sulla persona.
-- Resta dentro il mondo descritto dai dati: non inventare eventi che gli stati degli intrecci non contengono.
-- Chiudi sempre su un elemento di agentività — qualcosa che nel 2040 dipende ancora da lui o da lei. Mai su un vicolo cieco.
+- Nessuna previsione su morte, malattie o salute (sua o dei cari).
+- Nessun contenuto medico, psichiatrico, romantico o sessuale.
+- Nessun giudizio morale o tono da "te l'avevo detto": sii un testimone neutro ed empatico.
+- Rispondi SOLO con il testo dell'epilogo. Nessun titolo, nessuna premessa.`;
 
-Rispondi solo con il testo dell'epilogo. Nessun titolo, nessuna introduzione, nessun commento.`;
+// La rosa da cui il modello deve pescare le due scene: prima le minoranze,
+// che sono il materiale più carico. Solo capitoli VOTATI — un non votato non
+// ha né scelta né costo, e in cima alla rosa uscirebbe "Costo: null" (succede
+// a chi entra a metà serata, cioè proprio uno dei casi di collaudo).
+// Cappata a quattro: se uno è in minoranza tutte e dodici le volte, elencarle
+// tutte non mette in evidenza niente — la rosa smette di essere una rosa.
+// Esportata perché la usa anche il tool di prova: una definizione sola, o
+// torna a divergere come è già successo.
+export function scelteChiave(p) {
+  const votate = p.scelte.filter(s => s.voto);
+  const minoranze = votate.filter(s => s.minoranza);
+  return (minoranze.length ? minoranze : votate).slice(0, 4);
+}
 
 // Cosa vede il modello. Il nome non c'è.
-function payload(p) {
-  const scelte = p.scelte
-    .map(s => `  cap. ${s.capitolo}: ${s.voto === null ? "non ha votato" : s.voto}`)
-    .join("\n");
-  const mondo = p.esiti
-    .map(e => `  ${e.asse}: ${e.nome} — ${e.testo}`)
-    .join("\n");
+export function payload(p) {
+  const rilevanti = scelteChiave(p);
+
+  const scelte = p.scelte.map(s => {
+    if (!s.voto) return `— ${s.titolo}: NON HA VOTATO (evento subito).`;
+    return `— ${s.titolo}\n`
+      + `   Scelta: «${s.scelta}»\n`
+      + `   Costo pagato oggi: ${s.costo}`
+      + (s.minoranza ? ` [ATTENZIONE: HA PERSO, VOTO IN MINORANZA]` : ``);
+  }).join("\n");
+
+  const mondo = p.esiti.map(e => `— ${e.nome}: ${e.testo}`).join("\n");
+
   return `ETÀ NEL 2040: {ETA}
 
-LE SUE DODICI SCELTE ("facile" = la strada comoda, "difficile" = quella faticosa):
+SCELTE CHIAVE DA CUI ESTRARRE LA SCENA (Scegli 2 di queste da incrociare):
+${rilevanti.length
+    ? rilevanti.map(s => `* ${s.titolo} -> Costo: ${s.costo}`).join("\n")
+    : "* Non ha votato nulla: costruisci la scena solo sul mondo della sala, senza rimproverargli l'assenza."}
+
+TUTTE LE 12 SCELTE NEL DETTAGLIO:
 ${scelte}
 
-QUANTE SCELTE COMODE: ${p.indice_personale === null ? "nessun voto espresso" : p.indice_personale + "% dei voti che ha espresso"}
-QUANTE VOLTE HA VOTATO CONTRO LA MAGGIORANZA DELLA SALA: ${p.voti_in_minoranza} su ${p.voti_espressi}
-
-IL MONDO CHE LA SALA HA COSTRUITO (delega ${p.banda_sala || "non determinata"}):
+SISTEMA MONDO ATTUALE:
 ${mondo}
 
-COME FINISCE: ${p.climax.nome} — ${p.climax.testo}`;
+ESITO FINALE:
+${p.climax.testo}`;
 }
 
 // --------------------------------------------------------------------------
@@ -97,7 +137,7 @@ export async function generaUno(p) {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 600,
+        max_tokens: MAX_TOKENS,
         messages: [
           { role: "system", content: SYSTEM },
           { role: "user", content: payload(p) }
@@ -107,8 +147,12 @@ export async function generaUno(p) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
-    const testo = data?.choices?.[0]?.message?.content?.trim();
+    const scelta = data?.choices?.[0];
+    const testo = scelta?.message?.content?.trim();
     if (!testo) throw new Error("risposta vuota");
+    // Un epilogo tagliato a metà frase è peggio del fallback: quello almeno
+    // finisce. Alzare EPILOGO_MAX_TOKENS se succede spesso.
+    if (scelta.finish_reason === "length") throw new Error(`troncato a ${MAX_TOKENS} token`);
     return { testo, fonte: "modello" };
   } catch (e) {
     // qualunque cosa vada storta, lo studente riceve comunque il suo 2040
@@ -123,14 +167,18 @@ export function fallback(p) {
 }
 
 // Pool invece delle 90 chiamate simultanee: vedi il commento su PARALLELE.
-export async function generaTutti(lista, onProgress) {
+// `onUno` viene chiamato appena UN epilogo è pronto, non alla fine di tutti:
+// chi chiama può salvarlo subito, così un processo che cade a metà non porta
+// via anche il lavoro già fatto.
+export async function generaTutti(lista, onUno) {
   const out = new Map();
   let i = 0, fatti = 0;
   const worker = async () => {
     while (i < lista.length) {
       const { cid, dati } = lista[i++];
-      out.set(cid, await generaUno(dati));
-      if (onProgress) onProgress(++fatti, lista.length);
+      const ris = await generaUno(dati);
+      out.set(cid, ris);
+      if (onUno) await onUno(cid, ris, ++fatti, lista.length);
     }
   };
   await Promise.all(Array.from({ length: Math.min(PARALLELE, lista.length) }, worker));

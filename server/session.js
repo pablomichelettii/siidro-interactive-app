@@ -18,6 +18,8 @@ import { generaTutti, salva, modelloConfigurato } from "./epilogo.js";
 
 // Il modello scrive i segnaposto; qui si riempiono. Il nome non è mai entrato
 // nella chiamata al modello, che è il punto (Patch §8.4).
+const PER_N = new Map(CHAPTERS.map(c => [c.n, c]));
+
 const interpola = (testo, nome, eta) =>
   String(testo).replaceAll("{NOME}", nome || "Tu").replaceAll("{ETA}", eta || "l'età che avrai");
 
@@ -162,19 +164,20 @@ export class Session {
     this.generazione = { totale: lista.length, fatti: 0, finita: false, modello: modelloConfigurato() };
     this.io.to("director").emit("director:sync", this.directorView());
 
-    const esiti = await generaTutti(lista, (fatti) => {
+    // Ogni epilogo si assegna e si salva appena è pronto, uno alla volta.
+    // Salvarli tutti alla fine significa che un processo che muore al minuto
+    // otto dei nove butta via anche i settanta già generati.
+    await generaTutti(lista, async (cid, ris, fatti) => {
+      const p = this.participants.get(cid);
+      if (p) {
+        p.epilogo = { ...ris, testo: interpola(ris.testo, p.nome, p.eta) };
+        // il link che permette di rileggerlo nei giorni successivi (§8.5)
+        try { p.token = await salva({ nome: p.nome, eta: p.eta, testo: p.epilogo.testo }); }
+        catch (e) { console.error("epilogo non salvato:", e.message); }
+      }
       this.generazione.fatti = fatti;
       this.io.to("director").emit("director:sync", this.directorView());
     });
-
-    for (const [cid, ris] of esiti) {
-      const p = this.participants.get(cid);
-      if (!p) continue;
-      p.epilogo = { ...ris, testo: interpola(ris.testo, p.nome, p.eta) };
-      // il link che permette di rileggerlo nei giorni successivi (§8.5)
-      try { p.token = await salva({ nome: p.nome, eta: p.eta, testo: p.epilogo.testo }); }
-      catch (e) { console.error("epilogo non salvato:", e.message); }
-    }
     this.generazione.finita = true;
     this.broadcast();
   }
@@ -347,9 +350,21 @@ export class Session {
     const w = this.world;
     const scelte = [];
     let facili = 0, minoranza = 0;
+    // Ogni scelta porta con sé il capitolo, cosa ha scelto DAVVERO e cosa
+    // costava: un `cap. 3: facile` non dice niente né al modello che scrive
+    // l'epilogo né allo studente che lo rilegge.
     for (const h of this.history) {
       const voto = p.votes.get(h.n) || null;
-      scelte.push({ capitolo: h.n, voto });
+      const ch = PER_N.get(h.n);
+      const opt = voto === "facile" ? ch.opzione_facile : voto === "difficile" ? ch.opzione_difficile : null;
+      scelte.push({
+        capitolo: h.n, anno: ch.anno, titolo: ch.titolo,
+        voto,
+        scelta: opt ? opt.label : null,
+        costo: opt ? opt.costo_nascosto : null,
+        vinse: h.winner,
+        minoranza: !!voto && voto !== h.winner
+      });
       if (!voto) continue;
       if (voto === "facile") facili++;
       if (voto !== h.winner) minoranza++;

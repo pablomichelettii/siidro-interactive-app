@@ -30,9 +30,10 @@ Tre superfici (stesso server, host = IP LAN della macchina in sala):
 | `PORT` | `3000` | porta di ascolto |
 | `DIRECTOR_TOKEN` | *(vuoto)* | se impostata, la regia è accessibile solo con `?role=director&k=<token>`. Vuota = regia libera (ok in locale, **da impostare in deploy pubblico**) |
 | `OPENROUTER_API_KEY` | *(vuota)* | chiave per generare gli epiloghi individuali. **Senza, la serata funziona lo stesso**: tutti ricevono il fallback pre-scritto |
-| `OPENROUTER_MODEL` | `anthropic/claude-sonnet-4.5` | slug del modello su OpenRouter. ⚠️ da confermare sul catalogo: se è sbagliato la chiamata fallisce e parte il fallback |
+| `OPENROUTER_MODEL` | `deepseek/deepseek-v4-flash-0731` | slug del modello su OpenRouter. Il default è **il modello economico di proposito**: uno più caro va scelto apposta in `.env`, non subito per distrazione. ⚠️ se lo slug non esiste la chiamata fallisce e parte il fallback |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | endpoint OpenAI-compatibile |
 | `EPILOGO_TIMEOUT_MS` | `60000` | oltre questo, l'epilogo di quello studente è il fallback |
+| `EPILOGO_MAX_TOKENS` | `4000` | tetto su **ragionamento + testo**. I modelli che ragionano spendono 400-550 token prima di scrivere: sotto i 2000 gli epiloghi escono troncati. È un tetto, non una prenotazione — si paga il consumo reale |
 | `EPILOGO_PARALLELE` | `6` | chiamate simultanee. I 9 minuti del cap. 13 bastano; alzare se in prova risulta lento |
 | `EPILOGHI_DIR` | `data/epiloghi` | dove finiscono gli epiloghi rileggibili dal link |
 | `EPILOGHI_RETENTION_GIORNI` | `30` | dopo quanti giorni i file vengono cancellati all'avvio |
@@ -75,6 +76,22 @@ Tre superfici (stesso server, host = IP LAN della macchina in sala):
   - Override fini: `READ_MS` (sosta sul capitolo) e `VOTE_MS` (finestra di voto), in millisecondi.
   - Riporta connessioni riuscite, voti/latenza per round ed esito. Verificato fino a 200 client in locale (~40ms/round). NB: resetta e guida la sessione, non lanciarlo durante un evento reale.
 
+## Provare gli epiloghi prima dell'evento
+Il §8.4 della patch chiede di generare qualche centinaio di profili sintetici sulle combinazioni estreme **e rileggerli**: è l'unico modo di sapere cosa produce il modello quando la sala ha fatto un disastro.
+
+```bash
+npm run epiloghi              # 8 profili — verifica al volo che chiave e slug funzionino
+npm run epiloghi -- 200       # la prova vera, da rileggere
+npm run epiloghi -- 200 json  # anche in JSON, per analizzarli altrove
+npm run epiloghi -- 1 prompt  # il prompt esatto, senza chiamare nulla (gratis)
+```
+
+**Salva sempre un file** in `data/prove-epiloghi/` e ne stampa il percorso — duecento epiloghi non si leggono a terminale, e redirigere con `>` non funziona perché ci finirebbe dentro l'intestazione di npm. La cartella `data/` è in `.gitignore`.
+
+Ogni epilogo porta accanto la **sintesi delle scelte**, per verificare la coerenza senza tornare indietro: due righe di frecce (le tue e quelle della sala), quante volte sei rimasto in minoranza, e **la rosa che il modello ha ricevuto** con l'ordine di costruirci sopra la scena — se il testo non tocca nessuna di quelle, non ha obbedito.
+
+Copre 5 tipi di sala × 4 tipi di studente, compresi *entrato al capitolo 6* e *non ha mai votato*. Controlla in automatico: lunghezza 180-220 parole, apertura conforme, parole vietate (morte, malattia, diagnosi…), gergo dello spettacolo che trapela, tono giudicante. **Non** giudica il tono, le immagini, né se l'epilogo chiude davvero su un elemento di agentività — quelli si leggono.
+
 ## Deploy — evento in sala (LAN, consigliato)
 Per l'evento la LAN è la scelta più robusta: offline, bassa latenza, nessuna dipendenza da internet.
 ```bash
@@ -90,12 +107,13 @@ Serve la macchina raggiungibile dall'esterno su 80/443 e un record DNS `A` `libr
 
 **1) Node + app + persistenza**
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -   # Node 22: sotto, --env-file-if-exists non esiste
 sudo apt-get install -y nodejs
 git clone <repo> && cd n5d-future-book
 npm install
 sudo npm i -g pm2
-DIRECTOR_TOKEN="una-stringa-lunga-e-segreta" PORT=3000 pm2 start npm --name libro -- start
+cp .env.example .env && nano .env      # DIRECTOR_TOKEN, OPENROUTER_API_KEY, PORT
+pm2 start npm --name libro -- start     # npm start legge .env da solo
 pm2 save && pm2 startup             # esegui la riga che stampa (auto-avvio al boot)
 ```
 Node resta su `localhost:3000`, non esposto direttamente; nginx fa da fronte.
@@ -147,7 +165,7 @@ git pull
 npm install            # solo se sono cambiate le dipendenze (package.json)
 pm2 restart next5000days
 ```
-- `pm2 restart` mantiene `PORT` e `DIRECTOR_TOKEN` impostati al primo avvio.
+- La configurazione sta in `.env`, letto a ogni avvio: dopo averlo modificato serve `pm2 restart`.
 - Le modifiche solo-frontend (`public/…`) sono già servite dopo il `git pull`: basta un hard-reload del browser, il `pm2 restart` non è indispensabile (ma non fa danni).
 - Modifiche a `server/…`: il `pm2 restart` è necessario.
 - Verifica: `pm2 status next5000days` e `pm2 logs next5000days --lines 30`.
