@@ -1,12 +1,13 @@
 {
-  "name": "libro-vivo-2039",
+  "name": "libro-vivo-2040",
   "version": "0.1.0",
   "type": "module",
-  "description": "Il Libro Vivo del 2039 — MVP multiplayer real-time (SIIDRO 2026)",
+  "description": "Il Libro Vivo del 2040 \u2014 MVP multiplayer real-time (SIIDRO 2026)",
   "scripts": {
-    "start": "node server/index.js",
-    "test": "node server/engine.test.js",
-    "loadtest": "node loadtest/loadtest.mjs"
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "test": "node server/engine.test.js && node server/session.test.js",
+    "loadtest": "node --env-file-if-exists=.env loadtest/loadtest.mjs",
+    "epiloghi": "node --env-file-if-exists=.env tools/prova-epiloghi.mjs"
   },
   "dependencies": {
     "@fastify/static": "^7.0.4",

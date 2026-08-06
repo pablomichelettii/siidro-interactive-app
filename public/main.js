@@ -163,8 +163,11 @@ function runHeatGrid() {
       .to(o, { n: target, duration: dur, ease: "none", onUpdate: () => countEl.textContent = fmtNum(o.n) }, "<"); // il contatore sale in sincrono
   });
 }
-function firedHTML(list) {
-  return list.length ? list.map(f => `<div class="fired ${f.kind}">${f.txt}</div>`).join("")
+// Un esito risolto. La classe dice il segno: la terza via non ne ha uno.
+const SEGNO = { NEGATIVO: "neg", POSITIVO: "pos", TERZA_VIA_PENTIMENTO: "terza", TERZA_VIA_RESA: "terza" };
+function esitiHTML(list) {
+  return list.length ? list.map(e =>
+    `<div class="fired ${SEGNO[e.stato]}"><span class="nome">${e.nome}</span>${e.testo}</div>`).join("")
     : `<div class="muted" style="font-size:0.85rem">Niente si è ancora saldato. Gli eventi si sommeranno.</div>`;
 }
 function runCounters() {
@@ -257,9 +260,14 @@ function playInterstitial(fromDays, toDays, dateISO, startISO, endISO) {
 // RENDER capitolo / voto / finale
 // ==========================================================================
 function fillChapter(s) {
-  $("chYear").textContent = s.chapter.year;
-  $("chTitle").textContent = s.chapter.title;
-  $("chBody").innerHTML = (s.chapter.beats || []).map(beatHTML).join("");
+  $("chYear").textContent = s.chapter.anno;
+  $("chTitle").textContent = s.chapter.titolo;
+  let html = (s.chapter.beats || []).map(beatHTML).join("");
+  // capitolo 12: la variante che dipende da I5 · capitolo 13: il verdetto sull'Indice
+  if (s.chapter.oracolo) html += `<p class="signal">${s.chapter.oracolo}</p>`;
+  if (s.chapter.ruolo === "climax" && s.climax) html += `<p class="signal">${s.climax.testo}</p>`;
+  html += scenarioHTML(s);           // solo al capitolo 14: è quello che compone
+  $("chBody").innerHTML = html;
 }
 function animateChapterIn(s) {
   fillChapter(s);
@@ -277,35 +285,113 @@ function animateVoteIn() {
   // box risposta STATICI: nessuna animazione d'ingresso. Solo i numeri pulsano (vedi main:tally).
 }
 
+// SCENARIO GLOBALE — sei esiti raggruppati per cosa hanno fatto al mondo, più
+// l'Indice e il climax. Un solo renderer: lo usa il capitolo 14, che compone, e
+// la schermata finale, così resta consultabile dopo (§7).
+function scenarioHTML(s) {
+  if (!s.scenario) return "";
+  return `<div class="scenario">
+    <div class="year">Il mondo che avete costruito</div>
+    <div class="indice"><b>${s.indice == null ? "—" : s.indice + "%"}</b> di delega${s.banda ? ` · banda ${s.banda}` : ""}</div>
+    ${s.scenario.map(g => `<section class="gruppo ${g.chiave}">
+      <h3>${g.titolo}<span class="conta">${g.esiti.length}</span></h3>
+      ${esitiHTML(g.esiti)}
+    </section>`).join("")}
+    <div class="chiusura ${s.climax.esito === "PERSA" ? "neg" : "pos"}">
+      <span class="nome">${s.climax.nome}</span>${s.climax.testo}
+    </div>
+  </div>`;
+}
+
+// Timer del voto. Il server manda i ms che restano, non un istante assoluto:
+// il countdown parte da quando arriva il messaggio, così l'orologio del browser
+// fuori sincrono non sposta niente.
+let voteTl = null;
+function runVoteTimer(restaMs, durataSec) {
+  if (voteTl) { voteTl.kill(); voteTl = null; }
+  const bar = $("voteFill");
+  if (!restaMs || !durataSec) { bar.parentElement.style.display = "none"; return; }
+  bar.parentElement.style.display = "";
+  const frazione = Math.min(1, restaMs / (durataSec * 1000));   // chi entra a metà vede la barra già scesa
+  if (REDUCED || !G) { bar.style.transform = `scaleX(${frazione})`; return; }
+  G.set(bar, { scaleX: frazione });
+  voteTl = G.to(bar, { scaleX: 0, duration: restaMs / 1000, ease: "none" });
+}
+
+// La mezza figura: identica sempre, e non riceve nemmeno il dato per essere
+// diversa. Vedi il commento in main.html.
+const PARZIALE_HTML = `<div class="parziale">
+  <div class="redacted">${[7, 4, 9, 5, 6].map(w => `<i style="width:${w * 0.7}em"></i>`).join("")}</div>
+  <div class="half"><i></i></div>
+  <p>Qualcosa ha cominciato a formarsi. Si vedrà più avanti.</p>
+</div>`;
+
+// La rivelazione: la sala vede cosa ha scelto e, se il capitolo chiudeva un
+// intreccio, l'esito col nome che il narratore annuncia.
+let revealShown = false;
+function renderReveal(r) {
+  $("revLabel").textContent = r.winner === "facile" ? "La sala ha scelto la comodità" : "La sala ha scelto la fatica";
+  $("revChoice").textContent = r.label;
+  $("revF").textContent = r.facile;
+  $("revD").textContent = r.difficile;
+  $("revCosto").textContent = r.costo;
+  $("revEsito").innerHTML = r.esito ? esitiHTML([r.esito]) : r.parziale ? PARZIALE_HTML : "";
+  if (revealShown || REDUCED || !G) return;
+  revealShown = true;
+  const tl = G.timeline()
+    .from("#revLabel, #revChoice, .revtally, #revCosto", { opacity: 0, y: 20, stagger: 0.12, duration: 0.5, ease: "power3.out" });
+  // l'esito arriva dopo una pausa piena: è il momento in cui il narratore parla
+  if (r.esito) tl.from("#revEsito .fired", { opacity: 0, y: 40, duration: 0.9, ease: "power3.out" }, "+=0.8");
+  // la mezza figura entra piano e la barra si ferma a metà: sta arrivando, non è arrivata
+  if (r.parziale) tl.from("#revEsito .parziale", { opacity: 0, duration: 1.1, ease: "power2.out" }, "+=0.5")
+    .from("#revEsito .parziale .half > i", { scaleX: 0, transformOrigin: "left center", duration: 1.2, ease: "power2.inOut" }, "-=0.5");
+}
+
 let bodyIndex = -1, voteShown = false;
 function renderBody(s) {
-  if (bodyIndex !== s.index) { window.scrollTo({ top: 0 }); animateChapterIn(s); bodyIndex = s.index; voteShown = false; }  // nuovo capitolo → torna in cima
+  if (bodyIndex !== s.index) { window.scrollTo({ top: 0 }); animateChapterIn(s); bodyIndex = s.index; voteShown = false; revealShown = false; }  // nuovo capitolo → torna in cima
   const voting = s.phase === "voting" && s.options;
+  const revealing = s.phase === "revealing" && s.reveal;
+  $("revealArea").classList.toggle("hidden", !revealing);
+  if (revealing) {
+    renderReveal(s.reveal);
+    clearOrbits();                       // il voto è chiuso: le particelle si sciolgono
+    runVoteTimer(null);
+    $("voteArea").classList.add("hidden");
+    $("revealArea").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   $("voteArea").classList.toggle("hidden", !voting);
+  revealShown = false;                   // se il regista riapre il voto, l'esito si rigioca
   if (voting) {
     $("voteQ").textContent = s.options.q;
-    const fa = s.options.opts.find(o => o.tag === "facile"), di = s.options.opts.find(o => o.tag === "difficile");
-    $("poleFacile").querySelector(".opt").textContent = fa ? fa.text : "";
-    $("poleDifficile").querySelector(".opt").textContent = di ? di.text : "";
-    $("poleFacile").querySelector(".n").textContent = s.tally.facile;
-    $("poleDifficile").querySelector(".n").textContent = s.tally.difficile;
+    const fill = (id, o) => {
+      const el = $(id);
+      el.querySelector(".opt").textContent = o ? o.label : "";
+      el.querySelector(".gain").innerHTML = o ? `<b>Cosa guadagni</b>${o.guadagno}` : "";
+      el.querySelector(".cost").innerHTML = o ? `<b>Cosa paghi</b>${o.costo_nascosto}` : "";
+    };
+    fill("poleFacile", s.options.opts.find(o => o.tag === "facile"));
+    fill("poleDifficile", s.options.opts.find(o => o.tag === "difficile"));
+    showTally(s.tally, false);
     $("poleFacile").classList.remove("win"); $("poleDifficile").classList.remove("win");
     if (!voteShown) {
       voteShown = true; clearOrbits();
+      runVoteTimer(s.voteRestaMs, s.voteDurata);
       setTimeout(() => { polePos(); animateVoteIn(); $("voteArea").scrollIntoView({ behavior: "smooth", block: "center" }); }, 30);
     }
-  } else { voteShown = false; clearOrbits(); }
+  } else { voteShown = false; clearOrbits(); runVoteTimer(null); }
   polePos();
 }
+// La schermata finale è lo STESSO scenario del capitolo 14: resta lì, e resta
+// consultabile. Non è una seconda composizione, è la stessa che non se ne va.
 function renderEnded(s) {
-  $("verdict").textContent = s.chapter.verdict;
-  $("endName").textContent = s.attractor.name;
-  $("endedFired").innerHTML = firedHTML(s.fired);
+  $("endedScenario").innerHTML = scenarioHTML(s);
   if (s.consensus) $("consensus").textContent = `${s.consensus.same} in linea con la sala · ${s.consensus.diverge} su un'altra strada`;
-  $("aggregates").innerHTML = (s.aggregates || []).map(a => `<div class="agg"><span>${a.year} · ${a.title}</span><b>${a.winner}</b></div>`).join("");
+  $("aggregates").innerHTML = (s.aggregates || []).map(a => `<div class="agg"><span>${a.anno} · ${a.titolo}</span><b>${a.winner}</b></div>`).join("");
   if (G && !REDUCED) G.timeline()
-    .from("#verdict", { opacity: 0, y: 30, duration: 0.7, ease: "power3.out" })
-    .from("#endedFired .fired", { opacity: 0, x: 20, stagger: 0.12, duration: 0.5 }, "-=0.3")
+    .from("#endedScenario .gruppo", { opacity: 0, y: 24, stagger: 0.18, duration: 0.6, ease: "power3.out" })
+    .from("#endedScenario .chiusura", { opacity: 0, y: 30, duration: 0.8, ease: "power3.out" }, "+=0.3")
     .from("#aggregates .agg", { opacity: 0, x: 20, stagger: 0.05, duration: 0.4 }, "-=0.4");
 }
 
@@ -319,22 +405,36 @@ socket.on("main:participant", ({ cid, action, connected }) => {
   $("lobbyCount").textContent = connected;
 });
 socket.on("main:particle", ({ cid, tag }) => { ensure(cid); setOrbit(particles.get(cid), tag); });
-socket.on("main:tally", ({ facile, difficile }) => {
-  const set = (id, v) => { const el = $(id).querySelector(".n"); el.textContent = v; if (G && !REDUCED) G.fromTo(el, { scale: 1.25 }, { scale: 1, duration: 0.35, ease: "back.out(2)" }); };
-  set("poleFacile", facile); set("poleDifficile", difficile);
-});
+// A live spento facile/difficile arrivano nulli: la sala vede quanti hanno
+// votato, non da che parte (§2.3). I due contatori spariscono del tutto invece
+// di mostrare un segnaposto: due caselle vuote dove prima c'erano i numeri
+// sembrano un guasto, e dal fondo della sala nessuno può chiedere.
+function showTally(t, pulse) {
+  const nascosti = t.facile == null;
+  const set = (id, v) => {
+    const el = $(id).querySelector(".n");
+    el.classList.toggle("hidden", nascosti);
+    if (nascosti) return;
+    el.textContent = v;
+    if (pulse && G && !REDUCED) G.fromTo(el, { scale: 1.25 }, { scale: 1, duration: 0.35, ease: "back.out(2)" });
+  };
+  set("poleFacile", t.facile); set("poleDifficile", t.difficile);
+  $("voteCount").innerHTML = t.live ? ""
+    : `<b>${t.total}</b> hanno votato <span class="pill">i numeri si vedono a voto chiuso</span>`;
+}
+socket.on("main:tally", (t) => showTally(t, true));
 
 function startTransition(s, reveal) {
   transitioning = true;
   if (G && !REDUCED) G.set("#col", { opacity: 0 });
-  const from = daysBetween(s.startDate, s.prevDate), to = daysBetween(s.startDate, s.chapter.date);
-  playInterstitial(from, to, s.chapter.date, s.startDate, s.endDate).then(() => { transitioning = false; reveal(latest); });
+  const from = daysBetween(s.startDate, s.prevDate), to = daysBetween(s.startDate, s.chapter.data);
+  playInterstitial(from, to, s.chapter.data, s.startDate, s.endDate).then(() => { transitioning = false; reveal(latest); });
 }
 
 socket.on("main:sync", (s) => {
   latest = s;
   reconcile(s.participants || []);
-  const inGame = s.phase === "narrating" || s.phase === "voting";
+  const inGame = s.phase === "narrating" || s.phase === "voting" || s.phase === "revealing";
   $("lobby").classList.toggle("hidden", s.phase !== "lobby");
   $("game").classList.toggle("hidden", !inGame);
   $("ended").classList.toggle("hidden", s.phase !== "ended");
@@ -348,21 +448,24 @@ socket.on("main:sync", (s) => {
 
   // pannello di stato (sotto l'overlay): sempre aggiornato
   if (inGame) {
-    $("delegaFill").style.width = s.delega + "%";
-    $("worldName").textContent = s.attractor.name;
-    $("worldSub").textContent = s.attractor.sub;
-    $("progress").textContent = `Capitolo ${Math.min(s.index + 1, s.bivi)} di ${s.bivi}`;
-    $("firedList").innerHTML = firedHTML(s.fired);
-    if (s.fired.length > lastFired && G && !REDUCED) G.from("#firedList .fired", { opacity: 0, x: 20, stagger: 0.1, duration: 0.5, ease: "power2.out" });
-    lastFired = s.fired.length;
+    $("delegaFill").style.width = (s.indice ?? 50) + "%";
+    $("worldName").textContent = s.indice == null ? "—" : `Delega ${s.indice}`;
+    $("worldSub").textContent = s.banda ? `banda ${s.banda}` : "";
+    $("progress").textContent = `Capitolo ${s.chapter.n} di 14`;
+    $("firedList").innerHTML = esitiHTML(s.esiti);
+    if (s.esiti.length > lastFired && G && !REDUCED) G.from("#firedList .fired", { opacity: 0, x: 20, stagger: 0.1, duration: 0.5, ease: "power2.out" });
+    lastFired = s.esiti.length;
   }
 
-  const newChapter = s.index !== lastIndex && (inGame || s.phase === "ended");
-  if (inGame || s.phase === "ended") lastIndex = s.index;   // NON in lobby, o il 1° capitolo non scatta
-  const reveal = (x) => (x.phase === "ended" ? renderEnded(x) : renderBody(x));
+  const newChapter = inGame && s.index !== lastIndex;
+  if (inGame) lastIndex = s.index;                 // NON in lobby, o il 1° capitolo non scatta
 
-  if (transitioning) return;                       // l'interludio in corso mostrerà lo stato più recente al termine
-  if (newChapter && (inGame || s.phase === "ended")) startTransition(s, reveal);
+  // l'interludio può finire quando il regista è già andato oltre: al termine
+  // si mostra lo stato più recente, qualunque sia
+  const reveal = (x) => (x.phase === "ended" ? renderEnded(x) : x.chapter ? renderBody(x) : null);
+
+  if (transitioning) return;
+  if (newChapter) startTransition(s, reveal);
   else if (inGame) renderBody(s);
   else if (s.phase === "ended") renderEnded(s);
 });

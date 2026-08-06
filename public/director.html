@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regia — Il Libro Vivo del 2039</title>
+<title>Regia — Il Libro Vivo del 2040</title>
 <link rel="stylesheet" href="style.css">
 <style>
   .pad { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: var(--sp-lg) var(--sp-md); }
@@ -18,64 +18,129 @@
   .tallybar .f { background: var(--terra); } .tallybar .d { background: var(--ochre); }
   .tallybar span { display: flex; align-items: center; justify-content: center; color: var(--bg-black); font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; transition: width 0.3s; }
   .phase { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; color: var(--ochre); letter-spacing: 0.1em; }
+  /* Se il cruscotto perde il server deve GRIDARLO: numeri fermi che sembrano
+     veri sono peggio di nessun numero (§9). */
+  #offline { display: none; position: sticky; top: 0; z-index: 9; margin: 0 0 var(--sp-sm);
+    padding: var(--sp-sm) var(--sp-md); border-radius: 10px; background: var(--terra); color: var(--bg-black);
+    font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
+  body.giu #offline { display: block; }
+  body.giu .kpi, body.giu .tallybar, body.giu #timerTxt { opacity: 0.35; }
+  /* Il testo che il narratore deve leggere ad alta voce, quando c'è. */
+  .daleggere { border-left: 3px solid var(--ochre); padding: 0.4em 0 0.4em 1em; color: #f0dca9; }
+  .next { display: flex; justify-content: space-between; gap: var(--sp-md); font-size: 0.9rem; }
 </style>
 </head>
 <body>
 <div class="pad wrap">
+  <div id="offline">⚠ Connessione persa — i numeri qui sotto sono fermi. Prosegui a voce.</div>
   <div class="year">Cruscotto Regia · non proiettare</div>
-  <h2 style="font-size:2rem">Il Libro Vivo del 2039</h2>
+  <h2 style="font-size:2rem">Il Libro Vivo del 2040</h2>
 
   <div class="card">
     <div>Stato: <span class="phase" id="phase">—</span> · <span id="chLabel" class="muted"></span></div>
+    <div class="muted" id="chNodo" style="font-size:0.8rem;margin-top:0.3em"></div>
     <div class="row">
       <button class="btn" id="bStart">▶ Inizia</button>
       <button class="btn" id="bOpen">Apri voto</button>
       <button class="btn" id="bClose">Chiudi voto</button>
-      <button class="btn ghost" id="bTieF">Tiebreak ◄</button>
-      <button class="btn ghost" id="bTieD">Tiebreak ►</button>
-      <button class="btn ghost" id="bSkip">Salta ▷</button>
+      <button class="btn ghost" id="bReopen">↺ Riapri voto</button>
+      <button class="btn ghost" id="bTieF">Forza ↘ facile</button>
+      <button class="btn ghost" id="bTieD">Forza ↗ difficile</button>
+      <button class="btn" id="bSkip">Avanti ▷</button>
       <button class="btn ghost" id="bReset">Reset</button>
     </div>
+    <div class="row" style="margin-top:0">
+      <button class="btn" id="bEpiloghi">📱 Rivela epiloghi</button>
+    </div>
+    <div class="muted" id="epiTxt" style="font-size:0.8rem"></div>
   </div>
 
   <div class="card kpi">
     <div><div class="n" id="kConn">0</div><div class="l">Collegati</div></div>
-    <div><div class="n" id="kDelega">50</div><div class="l">Indice di Delega</div></div>
-    <div><div class="n" id="kWorld" style="font-size:1.2rem">In bilico</div><div class="l">Attrattore sala</div></div>
+    <div><div class="n" id="kDelega">—</div><div class="l">Indice di Delega</div></div>
+    <div><div class="n" id="kBanda" style="font-size:1.2rem">—</div><div class="l">Banda</div></div>
+    <div><div class="n" id="kClimax" style="font-size:1.2rem">—</div><div class="l">Climax se finisse ora</div></div>
+  </div>
+
+  <!-- Testo che il narratore deve leggere ad alta voce in QUESTO capitolo:
+       la variante del 12 che dipende da I5, e il verdetto del 13 sull'Indice.
+       Prima stavano solo sul proiettore, cioè dietro le spalle di chi parla. -->
+  <div class="card" id="leggiCard" style="display:none">
+    <div class="year">Da leggere adesso</div>
+    <div id="leggiDir" class="daleggere"></div>
+  </div>
+
+  <!-- Cosa deve dire il narratore adesso. Vuoto se non c'è niente da annunciare. -->
+  <div class="card" id="revCard" style="display:none">
+    <div class="year">Da annunciare</div>
+    <div id="revDir"></div>
   </div>
 
   <div class="card">
-    <div class="year">Voto in corso</div>
+    <div class="year">Poi</div>
+    <div class="next"><span id="nextLabel" class="muted">—</span><b id="nextVota"></b></div>
+  </div>
+
+  <div class="card">
+    <div class="year">Voto in corso · <span id="liveFlag"></span></div>
     <div class="tallybar"><span class="f" id="tbF" style="width:50%">0</span><span class="d" id="tbD" style="width:50%">0</span></div>
     <div class="muted" id="tallyTxt" style="font-size:0.8rem;margin-top:0.4em"></div>
+    <div class="muted" id="timerTxt" style="font-size:0.8rem;margin-top:0.4em"></div>
   </div>
 
+  <!-- La regia vede TUTTI gli esiti, compreso I6 prima del capitolo 14:
+       le serve per sapere cosa annunciare. La sala no. -->
   <div class="card">
-    <div class="year">Assi del tono (solo regia)</div>
-    <div class="tono"><span>Coesione ↔ Solitudine</span><b id="axC">0</b></div>
-    <div class="tono"><span>Verità ↔ Nebbia</span><b id="axV">0</b></div>
-    <div class="tono"><span>Equità ↔ Divario</span><b id="axE">0</b></div>
-  </div>
-
-  <div class="card">
-    <div class="year">Intrecci scattati</div>
-    <div id="fired"><span class="muted" style="font-size:0.85rem">Nessuno.</span></div>
+    <div class="year">Intrecci — nomi da annunciare · <span id="conteggio"></span></div>
+    <div id="fired"><span class="muted" style="font-size:0.85rem">Nessuno risolto.</span></div>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io({ query: { role: "director", k: new URLSearchParams(location.search).get("k") || "" } });
-  socket.on("connect_error", () => document.body.innerHTML = "<p style='padding:2rem'>Accesso regia negato: token mancante o errato.</p>");
   const $ = (id) => document.getElementById(id);
   const emit = (ev, d) => socket.emit(ev, d);
+
+  // Il server rifiuta la regia con "unauthorized". Qualunque altro errore è un
+  // problema di rete e il client riprova da solo: cancellare la pagina per un
+  // blip a metà serata la renderebbe irrecuperabile senza un reload.
+  let ultimo = null, online = false;
+  socket.on("connect", () => { online = true; document.body.classList.remove("giu"); abilita(); });
+  socket.on("disconnect", () => { online = false; document.body.classList.add("giu"); abilita(); });
+  socket.on("connect_error", (e) => {
+    if (String(e && e.message) === "unauthorized")
+      return document.body.innerHTML = "<p style='padding:2rem'>Accesso regia negato: token mancante o errato.</p>";
+    online = false; document.body.classList.add("giu"); abilita();
+  });
+
+  // I comandi si accendono solo quando hanno senso: sul palco un pulsante che
+  // non fa niente è indistinguibile da un pulsante che non ha funzionato.
+  function abilita() {
+    const s = ultimo, p = s && s.phase;
+    const on = (id, v) => $(id).disabled = !(online && v);
+    on("bStart",  p === "lobby");
+    on("bOpen",   p === "narrating" && !!(s.chapter && s.chapter.votabile));
+    on("bClose",  p === "voting");
+    on("bTieF",   p === "voting");
+    on("bTieD",   p === "voting");
+    on("bReopen", !!(s && s.puoRiaprire));
+    on("bSkip",   p === "narrating" || p === "revealing");
+    on("bReset",  true);
+    // si accende solo quando c'è davvero qualcosa da rivelare
+    on("bEpiloghi", !!(s && s.generazione && s.generazione.finita && !s.epiloghiRivelati));
+  }
+  abilita();
   $("bStart").onclick = () => emit("director:start");
   $("bOpen").onclick = () => emit("director:openVote");
   $("bClose").onclick = () => emit("director:closeVote");
+  $("bReopen").onclick = () => emit("director:reopenVote");
   $("bTieF").onclick = () => emit("director:closeVote", { option: "facile" });
   $("bTieD").onclick = () => emit("director:closeVote", { option: "difficile" });
   $("bSkip").onclick = () => emit("director:skip");
   $("bReset").onclick = () => { if (confirm("Azzerare la sessione?")) emit("director:reset"); };
+  // irreversibile per come è messa in scena: novanta schermi si accendono e basta
+  $("bEpiloghi").onclick = () => { if (confirm("Accendere adesso tutti i telefoni?")) emit("director:rivelaEpiloghi"); };
 
   function tally(t) {
     const tot = t.total || 1;
@@ -84,15 +149,71 @@
     $("tallyTxt").textContent = `${t.total} voti espressi · ${t.connected} collegati`;
   }
   socket.on("director:tally", tally);
+
+  // Countdown: la scadenza si calcola dai ms residui con l'orologio locale.
+  let fine = null, tot = 0;
+  setInterval(() => {
+    if (!fine) { $("timerTxt").textContent = ""; return; }
+    const resta = Math.max(0, fine - Date.now());
+    $("timerTxt").textContent = resta
+      ? `⏱ ${(resta / 1000).toFixed(0)}s di ${tot}s — si chiude da sé`
+      : "⏱ scaduto: chiusura automatica";
+  }, 250);
   socket.on("director:sync", (s) => {
+    ultimo = s; abilita();
     $("phase").textContent = s.phase;
-    $("chLabel").textContent = s.chapter ? `${s.chapter.year} — ${s.chapter.title}` : "";
+    $("chLabel").textContent = s.chapter
+      ? `cap. ${s.chapter.n}/14 · ${s.chapter.anno} — ${s.chapter.titolo}${s.chapter.votabile ? "" : " (non si vota)"}`
+      : "fine";
+    // pianta o raccoglie? decide il ritmo che il narratore deve tenere
+    $("chNodo").textContent = !s.chapter ? ""
+      : s.chiude ? `chiude ${s.chiude.id} · asse ${s.chiude.asse} — qui c'è un esito da annunciare`
+      : s.apre ? `apre ${s.apre.id} · asse ${s.apre.asse} — pianta e basta, si raccoglie più avanti`
+      : "non apre né chiude nessun intreccio";
+    // il testo da dire ad alta voce, dove ce n'è uno
+    const daLeggere = s.chapter && s.chapter.oracolo ? s.chapter.oracolo
+      : s.chapter && s.chapter.ruolo === "climax" ? `${s.climax.nome} — ${s.climax.testo}`
+      : null;
+    $("leggiCard").style.display = daLeggere ? "" : "none";
+    if (daLeggere) $("leggiDir").textContent = daLeggere;
+    $("nextLabel").textContent = s.prossimo
+      ? `cap. ${s.prossimo.n} · ${s.prossimo.anno} — ${s.prossimo.titolo}`
+      : "niente: dopo questo la serata è finita";
+    $("nextVota").textContent = s.prossimo ? (s.prossimo.votabile ? "si vota" : "non si vota") : "";
     $("kConn").textContent = s.connected;
-    $("kDelega").textContent = s.delega;
-    $("kWorld").textContent = s.attractor.name;
-    $("axC").textContent = s.tono.coesione; $("axV").textContent = s.tono.verita; $("axE").textContent = s.tono.equita;
-    $("fired").innerHTML = s.fired.length ? s.fired.map(f => `<div class="fired ${f.kind}">${f.txt}</div>`).join("")
-      : `<span class="muted" style="font-size:0.85rem">Nessuno.</span>`;
+    $("kDelega").textContent = s.indice == null ? "—" : s.indice + "%";
+    $("kBanda").textContent = s.banda || "—";
+    $("kClimax").textContent = s.climax.nome;
+    // il regista deve sapere se la sala sta vedendo la forbice o no
+    $("liveFlag").textContent = s.phase !== "voting" ? "chiuso"
+      : s.chapter && s.chapter.mostra_live ? "la sala VEDE la forbice" : "forbice nascosta alla sala";
+    fine = s.voteRestaMs ? Date.now() + s.voteRestaMs : null;
+    tot = s.voteDurata || 0;
+    // gli epiloghi si generano durante il capitolo 13: qui si vede a che punto è
+    const g = s.generazione;
+    $("epiTxt").textContent = s.epiloghiRivelati ? "Epiloghi rivelati — i telefoni sono accesi."
+      : !g ? `Epiloghi: si generano alla chiusura del capitolo 12. ${s.conNome} hanno lasciato un nome.`
+      : !g.finita ? `Generazione in corso: ${g.fatti}/${g.totale}${g.modello ? "" : " (nessuna chiave: tutti fallback)"}`
+      : `Pronti: ${g.totale} epiloghi. Aspetta la battuta, poi premi.`;
+    const SEGNO = { NEGATIVO: "neg", POSITIVO: "pos", TERZA_VIA_PENTIMENTO: "terza", TERZA_VIA_RESA: "terza" };
+    $("revCard").style.display = s.reveal ? "" : "none";
+    if (s.reveal) {
+      const r = s.reveal;
+      $("revDir").innerHTML =
+        `<p>Ha vinto <b>${r.winner}</b> · ${r.facile} a ${r.difficile}</p>`
+        + (r.esito
+          ? `<div class="fired ${SEGNO[r.esito.stato]}"><b>${r.esito.id} — ${r.esito.nome}</b> <span class="muted">(${r.esito.stato}, asse ${r.esito.asse})</span><p style="margin:0.5em 0 0">${r.esito.testo}</p></div>`
+          : `<p class="muted" style="font-size:0.85rem">Questo capitolo non chiude nessun intreccio: niente da annunciare, si pianta e si va avanti.</p>`);
+    }
+    // la scaletta in una riga: è quello che il narratore dice al capitolo 14
+    const conta = { NEGATIVO: 0, POSITIVO: 0, terza: 0 };
+    s.esitiTutti.forEach(e => conta[/TERZA/.test(e.stato) ? "terza" : e.stato]++);
+    $("conteggio").textContent = s.esitiTutti.length
+      ? `${conta.NEGATIVO} rotti · ${conta.terza} a metà · ${conta.POSITIVO} tenuti`
+      : "";
+    $("fired").innerHTML = s.esitiTutti.length
+      ? s.esitiTutti.map(e => `<div class="fired ${SEGNO[e.stato]}"><b>${e.id}</b> · ${e.nome} <span class="muted">(${e.stato})</span></div>`).join("")
+      : `<span class="muted" style="font-size:0.85rem">Nessuno risolto.</span>`;
     tally(s.tally);
   });
 </script>

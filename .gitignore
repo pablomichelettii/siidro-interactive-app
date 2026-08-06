@@ -4,3 +4,6 @@ node_modules/
 *.log
 .env
 _e2e.mjs
+
+# epiloghi individuali: contengono i nomi degli studenti, non vanno in git
+data/

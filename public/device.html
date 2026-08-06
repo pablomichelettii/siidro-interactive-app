@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Il Libro Vivo del 2039</title>
+<title>Il Libro Vivo del 2040</title>
 <link rel="stylesheet" href="style.css">
 <style>
   body { display: flex; }
@@ -13,15 +13,47 @@
   .vote-opt { width: 100%; text-align: left; font-family: var(--font-serif); text-transform: none; letter-spacing: 0; font-size: 1.1rem; padding: var(--sp-md); line-height: 1.4; }
   .vote-opt.picked { background: var(--ochre); color: var(--bg-black); }
   #timerNote { text-align: center; }
+  /* quanto resta per cambiare idea: una barra, senza cifre che mettano fretta */
+  .votebar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: var(--sp-md); }
+  .votebar > i { display: block; height: 100%; width: 100%; background: var(--ochre);
+    transform-origin: left center; transition: transform 0.2s linear; }
   .cmp { border: 1px solid var(--wire); border-radius: 14px; padding: var(--sp-md); }
   .cmp .big { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; font-size: 1.3rem; }
   .cmp .room { color: var(--terra); } .cmp .you { color: var(--ochre); }
+  /* accoglienza */
+  .campo { display: block; margin: var(--sp-md) 0; font-size: 0.9rem; color: var(--muted); }
+  .campo input { display: block; width: 100%; margin-top: 0.5em; padding: var(--sp-sm);
+    font-family: var(--font-serif); font-size: 1.1rem; color: var(--white);
+    background: rgba(0,0,0,0.25); border: 1px solid var(--wire); border-radius: 10px; }
+  .campo input:focus { outline: none; border-color: var(--ochre); }
+  .campo small { display: block; margin-top: 0.4em; font-size: 0.8rem; }
+  #bEntra { width: 100%; margin-top: var(--sp-sm); }
+  /* l'epilogo: è la cosa che leggono, deve respirare */
+  .epilogo { white-space: pre-wrap; font-size: 1.15rem; line-height: 1.7; margin: var(--sp-md) 0; }
 </style>
 </head>
 <body>
 <div class="screen wrap">
+  <!-- ACCOGLIENZA (Patch §8.1) — nome o nickname, e data di nascita per l'età
+       esatta nel 2040. Il picker nativo invece di un campo libero: meno errori,
+       e la tastiera giusta su ogni telefono. -->
+  <form id="onboarding" class="hidden">
+    <div class="year">Prima di cominciare</div>
+    <h2 style="font-size:1.5rem">Chi sei?</h2>
+    <label class="campo">Come ti chiamiamo
+      <input id="fNome" type="text" maxlength="30" autocomplete="given-name"
+             placeholder="Nome o nickname" required>
+    </label>
+    <label class="campo">Quando sei nato o nata
+      <input id="fNascita" type="date" required>
+      <small class="muted">Serve per dirti che età esatta avrai nel 2040.</small>
+    </label>
+    <button class="btn" id="bEntra" type="submit">Entra nel libro</button>
+    <p id="fErr" class="muted hidden" style="text-align:center"></p>
+  </form>
+
   <!-- attesa -->
-  <div id="wait" class="wait">
+  <div id="wait" class="wait hidden">
     <div class="display">Segui lo schermo</div>
     <p class="muted" id="waitSub">Sei dentro il libro. Quando la storia si ferma, tocca a te.</p>
   </div>
@@ -31,18 +63,23 @@
     <div class="year">La storia si è fermata</div>
     <h2 id="q" style="font-size:1.4rem"></h2>
     <div id="opts"></div>
+    <div class="votebar"><i id="voteFill"></i></div>
     <p id="voteNote" class="muted hidden" style="text-align:center">Voto registrato. Puoi ancora cambiare idea.</p>
   </div>
 
   <!-- epilogo personale -->
   <div id="endBox" class="hidden">
-    <div class="year">Il tuo 2039</div>
-    <div class="cmp">
-      <p>La sala è arrivata a</p>
-      <div class="big room" id="roomName"></div>
-      <p style="margin-top:1em" id="cmpBridge">Ma con le tue scelte</p>
-      <div class="big you" id="youName"></div>
+    <div class="year">Il tuo 2040</div>
+    <!-- il testo generato: è la cosa che devono leggere, sta in cima e da sola -->
+    <p id="epilogo" class="epilogo hidden"></p>
+    <a id="epilogoLink" class="btn hidden" style="display:none">Tieni questo link</a>
+    <div class="cmp" style="margin-top:var(--sp-lg)">
+      <p>La sala ha delegato</p>
+      <div class="big room" id="roomIndice"></div>
+      <p style="margin-top:1em">Tu</p>
+      <div class="big you" id="youIndice"></div>
       <p class="muted" id="youCount" style="margin-top:0.5em"></p>
+      <p class="muted" id="youMinority" style="margin-top:0.5em"></p>
     </div>
     <p id="youVerdict" style="margin-top:var(--sp-md)"></p>
     <div id="youFired" style="margin-top:var(--sp-sm)"></div>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Il Libro Vivo del 2039 — Main Screen</title>
+<title>Il Libro Vivo del 2040 — Main Screen</title>
 <link rel="stylesheet" href="style.css">
 <style>
   #fx { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; }
@@ -59,7 +59,66 @@
   .pole.facile.win { color: var(--terra); }
   .pole.difficile.win { color: var(--ochre); }
   .pole .opt { font-family: var(--font-serif); font-size: clamp(1rem,1.6vw,1.4rem); color: var(--white); }
+  /* "Cosa guadagni / Cosa paghi" invece di una tabella pro-contro: mette la sala
+     davanti al dilemma senza far sembrare ovvia la risposta giusta */
+  .pole .gain, .pole .cost { font-size: 0.95rem; color: var(--muted); margin-top: 0.9em; }
+  .pole .gain b, .pole .cost b { display: block; font-family: var(--font-display); font-weight: 700;
+    font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 0.25em; }
+  .pole.facile .gain b, .pole.facile .cost b { color: var(--terra); }
+  .pole.difficile .gain b, .pole.difficile .cost b { color: var(--ochre); }
   .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem,7vw,5rem); font-variant-numeric: tabular-nums; min-width: 0; }
+  /* timer del voto: una barra che si svuota, senza cifre — un numero che scende
+     mette fretta, una barra dà il tempo che resta senza contarlo */
+  .votebar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: var(--sp-sm); }
+  .votebar > i { display: block; height: 100%; width: 100%; background: var(--ochre); transform-origin: left center; }
+  #voteCount { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; font-size: 0.95rem; color: var(--muted); margin-top: var(--sp-sm); }
+  #voteCount b { font-size: 2.2rem; color: var(--ochre); letter-spacing: 0; vertical-align: -0.15em; }
+  /* dice che il silenzio è voluto, non un guasto */
+  #voteCount .pill { display: inline-block; margin-left: 0.8em; padding: 0.35em 0.9em; font-size: 0.7rem;
+    border: 1px solid var(--wire); border-radius: 999px; letter-spacing: 0.1em; }
+
+  /* MEZZA FIGURA (§4.6) — identica per tutti e cinque gli intrecci. Nessun colore
+     di segno, nessuna lettera leggibile: la sala vede CHE sta costruendo qualcosa,
+     non cosa. Se un giorno diventa un asset disegnato, si sostituisce qui. */
+  .parziale { border: 1px solid rgba(255,255,255,0.35); border-radius: 16px; padding: var(--sp-md);
+    max-width: 30em; background: rgba(255,255,255,0.04); }
+  .parziale .redacted { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: var(--sp-sm); }
+  .parziale .redacted i { display: block; height: 1.1rem; border-radius: 3px; background: rgba(255,255,255,0.28); }
+  .parziale .half { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14); overflow: hidden; }
+  .parziale .half > i { display: block; height: 100%; width: 50%; background: rgba(255,255,255,0.5); }
+  .parziale p { margin: var(--sp-sm) 0 0; color: var(--muted); font-size: 0.95rem; }
+
+  /* rivelazione: la forbice finale si vede sempre qui, anche dove il live era spento */
+  .revtally { display: flex; gap: var(--sp-md); font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(1.6rem,4vw,3rem); font-variant-numeric: tabular-nums; margin: var(--sp-sm) 0; }
+  .revtally span:first-child { color: var(--terra); }
+  .revtally span:last-child { color: var(--ochre); }
+  /* il nome dell'esito è la cosa che il narratore annuncia: va grande */
+  #revEsito .fired { font-size: 1.05rem; padding: var(--sp-md); }
+  #revEsito .fired .nome { font-size: clamp(1.3rem,3vw,2.2rem); letter-spacing: 0.02em; margin-bottom: 0.5em; }
+  /* SCENARIO GLOBALE — i sei esiti raggruppati per cosa hanno fatto al mondo.
+     Non è una tabella di finali: il raggruppamento si compone a runtime, e i
+     gruppi vuoti non compaiono (se niente ha tenuto, non c'è «ha tenuto»). */
+  .scenario { margin-top: var(--sp-xl); }
+  .scenario .indice { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; font-size: 0.95rem; color: var(--muted); margin: 0.4em 0 var(--sp-lg); }
+  .scenario .indice b { font-size: 2.2rem; color: var(--ochre); letter-spacing: 0; }
+  .gruppo { margin-bottom: var(--sp-lg); }
+  .gruppo h3 { display: flex; align-items: baseline; gap: 0.6em; margin: 0 0 var(--sp-sm);
+    font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: clamp(1rem, 1.8vw, 1.5rem); }
+  .gruppo .conta { font-size: 0.75em; color: var(--muted); }
+  .gruppo.rotto h3 { color: var(--terra); }
+  .gruppo.tenuto h3 { color: var(--ochre); }
+  .gruppo.meta h3 { color: rgba(255,255,255,0.75); }
+  /* il climax chiude: è l'unica cosa che non è un intreccio */
+  .scenario .chiusura { border-top: 1px solid var(--wire); padding-top: var(--sp-md); margin-top: var(--sp-lg);
+    font-size: clamp(1rem,1.6vw,1.3rem); }
+  .scenario .chiusura .nome { display: block; font-family: var(--font-display); font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.02em; font-size: clamp(1.4rem,3vw,2.4rem); margin-bottom: 0.4em; }
+  .scenario .chiusura.neg .nome { color: var(--terra); }
+  .scenario .chiusura.pos .nome { color: var(--ochre); }
   .beat { margin: 1em 0; }
   .agg { display: flex; justify-content: space-between; border-bottom: 1px solid var(--wire); padding: 0.4em 0; font-size: 0.9rem; }
   .agg b { color: var(--ochre); }
@@ -84,7 +143,7 @@
 <!-- LOBBY -->
 <div id="lobby" class="wrap">
   <div class="year">Next 5000 Days · SIIDRO 2026</div>
-  <h1 class="hero">Il Libro Vivo<br>del 2039</h1>
+  <h1 class="hero">Il Libro Vivo<br>del 2040</h1>
   <p class="muted">Inquadra il codice per entrare. Poi segui lo schermo.</p>
   <img id="qr" alt="QR di accesso">
   <div><span class="count" id="lobbyCount">0</span> <span class="muted">lettori collegati</span></div>
@@ -99,10 +158,29 @@
 
     <div id="voteArea" class="hidden">
       <h2 id="voteQ" style="font-size:clamp(1.5rem,3vw,2.4rem)"></h2>
+      <div class="votebar"><i id="voteFill"></i></div>
+      <!-- a live spento è qui che la sala vede che si sta votando, senza sapere da che parte -->
+      <div class="muted" id="voteCount"></div>
       <div class="poles">
-        <div class="pole facile" id="poleFacile"><div class="opt"></div><div class="n">0</div></div>
-        <div class="pole difficile" id="poleDifficile"><div class="opt"></div><div class="n">0</div></div>
+        <div class="pole facile" id="poleFacile">
+          <div><div class="opt"></div><div class="gain"></div><div class="cost"></div></div>
+          <div class="n">0</div>
+        </div>
+        <div class="pole difficile" id="poleDifficile">
+          <div><div class="opt"></div><div class="gain"></div><div class="cost"></div></div>
+          <div class="n">0</div>
+        </div>
       </div>
+    </div>
+
+    <!-- RIVELAZIONE — dopo la chiusura del voto: cosa ha scelto la sala e,
+         se questo capitolo chiudeva un intreccio, l'esito che si è saldato -->
+    <div id="revealArea" class="hidden">
+      <div class="year" id="revLabel"></div>
+      <h2 id="revChoice" style="font-size:clamp(1.4rem,2.6vw,2.2rem)"></h2>
+      <div class="revtally"><span id="revF"></span><span id="revD"></span></div>
+      <p class="muted" id="revCosto"></p>
+      <div id="revEsito" style="margin-top:var(--sp-lg)"></div>
     </div>
   </main>
 
@@ -123,14 +201,12 @@
 <!-- FINALE -->
 <div id="ended" class="layout wrap hidden">
   <main>
-    <div class="year">2038 → 2039</div>
-    <h2>Quel giorno smisero di chiederci permesso</h2>
-    <p id="verdict" style="font-size:clamp(1.1rem,1.8vw,1.5rem)"></p>
-    <div id="endedFired" style="margin-top:var(--sp-md)"></div>
-    <p class="muted" style="margin-top:var(--sp-lg)">Controllate il telefono: c'è il vostro 2039.</p>
+    <div class="year">2040 · Lo Specchio</div>
+    <!-- lo stesso scenario del capitolo 14, che resta consultabile -->
+    <div id="endedScenario"></div>
+    <p class="muted" style="margin-top:var(--sp-lg)">Controllate il telefono: c'è il vostro 2040.</p>
   </main>
   <aside>
-    <div class="worldname" id="endName"></div>
     <div class="muted" id="consensus" style="margin-bottom:var(--sp-md)"></div>
     <div class="year">Come ha votato la sala</div>
     <div id="aggregates" style="margin-top:var(--sp-sm)"></div>

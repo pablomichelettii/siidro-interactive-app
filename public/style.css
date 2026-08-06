@@ -67,6 +67,9 @@ h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.02em;
 .fired { border: 1px solid var(--wire); border-radius: 8px; padding: 0.7em 1em; margin: 0.5em 0; font-size: 0.95rem; }
 .fired.neg { border-color: var(--terra); color: #f3c3b3; background: rgba(225,142,116,0.08); }
 .fired.pos { border-color: var(--ochre); color: #f3dca6; background: rgba(236,174,49,0.08); }
+/* terza via: né buona né cattiva. Deliberatamente senza colore di segno. */
+.fired.terza { border-color: rgba(255,255,255,0.45); color: var(--white); background: rgba(255,255,255,0.05); }
+.fired .nome { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8rem; display: block; margin-bottom: 0.35em; }
 
 /* bottoni / opzioni */
 .btn { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;

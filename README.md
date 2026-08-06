@@ -1,4 +1,4 @@
-# Il Libro Vivo del 2039 — MVP
+# Il Libro Vivo del 2040 — MVP
 
 Web app narrativa multiplayer real-time per l'evento scuole SIIDRO 2026.
 Spec: [`MASTER-PROMPT-MVP.md`](./MASTER-PROMPT-MVP.md) · Meccaniche: `SIIDRO 2026 - Libro Vivo - Handoff...md`.
@@ -7,17 +7,20 @@ Spec: [`MASTER-PROMPT-MVP.md`](./MASTER-PROMPT-MVP.md) · Meccaniche: `SIIDRO 20
 
 ```bash
 npm install
-npm start          # porta 3000 (PORT=xxxx per cambiarla)
-npm test           # self-check del doppio binario
+cp .env.example .env   # configurazione: chiave OpenRouter, token regia, porta…
+npm start              # porta 3000 (PORT=xxxx per cambiarla)
+npm test               # self-check motore + sessione
 ```
+
+`npm start` legge `.env` da solo — lo fa Node, non serve `dotenv`. **Senza `.env` l'app parte comunque** coi default. Il file è in `.gitignore`, la chiave non finisce nel repo. Tutte le variabili sono documentate in [`.env.example`](./.env.example) e riassunte qui sotto.
 
 Tre superfici (stesso server, host = IP LAN della macchina in sala):
 
 | Superficie | URL | Note |
 |---|---|---|
 | **Main Screen** (proiettore) | `http://<ip-lan>:3000/?role=main` | mostra QR, storia, particelle, finale |
-| **Regista** (privato) | `http://<ip-lan>:3000/?role=director` | comandi + assi del tono. In deploy pubblico: `...&k=<token>` |
-| **Partecipanti** (telefoni) | inquadrano il QR sul Main Screen | anonimi |
+| **Regista** (privato) | `http://<ip-lan>:3000/?role=director` | comandi + Indice di Delega + nomi degli esiti da annunciare. In deploy pubblico: `...&k=<token>` |
+| **Partecipanti** (telefoni) | inquadrano il QR sul Main Screen | accoglienza con nome/nickname + data di nascita |
 
 > **Apri sempre il Main Screen dall'indirizzo che useranno i telefoni** (IP LAN in sala, o dominio pubblico), non da `localhost`: il QR codifica l'origin della pagina Main.
 
@@ -26,15 +29,27 @@ Tre superfici (stesso server, host = IP LAN della macchina in sala):
 |---|---|---|
 | `PORT` | `3000` | porta di ascolto |
 | `DIRECTOR_TOKEN` | *(vuoto)* | se impostata, la regia è accessibile solo con `?role=director&k=<token>`. Vuota = regia libera (ok in locale, **da impostare in deploy pubblico**) |
+| `OPENROUTER_API_KEY` | *(vuota)* | chiave per generare gli epiloghi individuali. **Senza, la serata funziona lo stesso**: tutti ricevono il fallback pre-scritto |
+| `OPENROUTER_MODEL` | `anthropic/claude-sonnet-4.5` | slug del modello su OpenRouter. ⚠️ da confermare sul catalogo: se è sbagliato la chiamata fallisce e parte il fallback |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | endpoint OpenAI-compatibile |
+| `EPILOGO_TIMEOUT_MS` | `60000` | oltre questo, l'epilogo di quello studente è il fallback |
+| `EPILOGO_PARALLELE` | `6` | chiamate simultanee. I 9 minuti del cap. 13 bastano; alzare se in prova risulta lento |
+| `EPILOGHI_DIR` | `data/epiloghi` | dove finiscono gli epiloghi rileggibili dal link |
+| `EPILOGHI_RETENTION_GIORNI` | `30` | dopo quanti giorni i file vengono cancellati all'avvio |
 
 ## Flusso in sala
 1. Apri Main Screen (lobby: QR) e Regista.
-2. I ragazzi scansionano → pallini che fluttuano.
-3. Regista: **Inizia** → scorre il capitolo → **Apri voto** → i telefoni votano → le particelle si polarizzano → **Chiudi voto** (o Tiebreak sul pareggio) → capitolo successivo.
-4. Dopo i 12 bivi: finale globale sul Main Screen + "il tuo 2039" su ogni telefono.
+2. I ragazzi scansionano → **accoglienza**: nome (o nickname) e data di nascita, che serve per l'età esatta nel 2040. Poi pallini che fluttuano.
+3. Regista: **Inizia** → scorre il capitolo → **Apri voto** → i telefoni votano → le particelle si polarizzano. Il voto **si chiude da sé** allo scadere di `durata_voto_sec` (60s di default): **Chiudi voto** serve solo per anticipare, **Forza ↘/↗** per il pareggio.
+4. **Chiudi voto non avanza**: il capitolo resta a schermo e mostra cosa ha scelto la sala, la forbice finale e — se questo capitolo chiudeva un intreccio — l'esito col nome che il narratore annuncia. Il cruscotto lo scrive nella card *Da annunciare*. Poi **Avanti ▷**. **Riapri voto** annulla l'ultima chiusura, da qui o dopo essere avanzato.
+5. Dopo i 12 bivi restano il capitolo 13 (climax, legge l'Indice di Delega) e il 14 (chiusura): non si votano, li avanza **Avanti ▷**.
+6. **Alla chiusura del capitolo 12 gli epiloghi si generano da soli**, nei 9 minuti del 13. Il cruscotto mostra l'avanzamento; quando è pronto si accende **📱 Rivela epiloghi**.
+7. Il narratore chiude lo scenario globale, dice «adesso guardate il telefono», e **solo allora** il regista preme: novanta schermi si accendono insieme. Ogni studente ha anche un link `/e/<token>` per rileggerlo nei giorni dopo.
 
 ## Testare più connessioni in locale
-- **Tab multipli** (rapido): ogni scheda su `/?role=device` è un socket distinto (il `cid` sta in `sessionStorage`, per-tab → partecipanti diversi). Apri Main + Regia in due finestre e qualche tab device.
+> ⚠️ **Node non ricarica i moduli.** Dopo ogni modifica a `server/…` il processo va riavviato, anche in locale: un server lasciato acceso risponde benissimo e parla il codice di ieri. Il loadtest se ne accorge e lo dice, il browser no.
+
+- **Tab multipli** (rapido): ogni scheda su `/?role=device` è un socket distinto (il `cid` sta in `localStorage`, quindi per schede dello **stesso** browser serve una finestra in incognito o un profilo diverso per avere partecipanti distinti). Apri Main + Regia in due finestre e qualche tab device.
 - **Telefoni sulla stessa wifi**: il server ascolta su `0.0.0.0`. Trova l'IP e apri il Main da lì:
   ```bash
   ipconfig getifaddr en0     # macOS, es. 192.168.1.42
@@ -48,7 +63,15 @@ Tre superfici (stesso server, host = IP LAN della macchina in sala):
   # contro un server remoto / con token regia:
   URL=https://libro.tuodominio.it DIRECTOR_TOKEN=xxx npm run loadtest -- 120
   ```
-  - **2° argomento = secondi per fase** (lettura capitolo + finestra di voto). `0` = full speed. Durata partita ≈ `24 × secondi` (12 bivi × 2 fasi). Con ritmo > 0 i voti arrivano scaglionati → apri `…/?role=main` e guardi le particelle migrare a poco a poco.
+  - **2° argomento = secondi per fase** (lettura capitolo + finestra di voto). `0` = full speed. Durata partita ≈ `28 × secondi` (12 bivi × 2 fasi + 2 capitoli narrati). Con ritmo > 0 i voti arrivano scaglionati → apri `…/?role=main` e guardi le particelle migrare a poco a poco.
+  - **`SCENARIO=` forza la serata**: 12 lettere `f`/`d`, una per capitolo. Serve a vedere a schermo un mondo preciso senza sperare che i voti casuali ci arrivino.
+    ```bash
+    SCENARIO=dddddddddddd npm run loadtest -- 90   # tutti e sei gli esiti positivi
+    SCENARIO=ffffffffffff npm run loadtest -- 90   # tutti e sei negativi
+    SCENARIO=ffffffdddddd npm run loadtest -- 90   # la sala si pente a metà → terze vie
+    SCENARIO=ddddddffffff npm run loadtest -- 90   # la sala si stanca a metà
+    ```
+  - Senza `SCENARIO` la sala è casuale su **due livelli**: una disposizione per l'intera serata, più un umore per capitolo. Serve perché con una probabilità fissa per client, a 90 votanti la maggioranza non gira mai e usciva sempre lo stesso mondo.
   - Override fini: `READ_MS` (sosta sul capitolo) e `VOTE_MS` (finestra di voto), in millisecondi.
   - Riporta connessioni riuscite, voti/latenza per round ed esito. Verificato fino a 200 client in locale (~40ms/round). NB: resetta e guida la sessione, non lanciarlo durante un evento reale.
 
@@ -130,12 +153,14 @@ pm2 restart next5000days
 - Verifica: `pm2 status next5000days` e `pm2 logs next5000days --lines 30`.
 
 ## Architettura (essenziale)
-- Un processo Node (Fastify + Socket.IO). Stato **in memoria**, **anonimo**, **effimero** (niente DB).
-- `server/engine.js` — contenuti + riduttore puro (portati dall'MVP). Storia lineare.
-- `server/session.js` — doppio binario: `collective` (maggioranza → Main Screen) + `personal` per ogni socket (`Map<cid, state>`).
+- Un processo Node (Fastify + Socket.IO). Stato **in memoria**, niente DB. **Non più del tutto anonimo**: nome e data di nascita servono all'epilogo. La data di nascita resta in memoria e muore col processo; a disco finisce solo l'epilogo salvato (nome + stringa età + testo), con retention.
+- `server/epilogo.js` — generazione via OpenRouter (API OpenAI-compatibile, `fetch`, nessuna dipendenza), fallback obbligatorio, persistenza e retention. **Il nome non entra mai nella chiamata**: il modello scrive `{NOME}`/`{ETA}` e il server interpola dopo.
+- `server/content.js` — **tutti i testi**, nessuna logica: 14 capitoli 2027→2040, 6 intrecci, varianti del cap. 12, climax, fallback dell'epilogo.
+- `server/engine.js` — solo funzioni pure. Lo stato **non è accumulato**: `derive(history)` ricava Indice, banda, stato dei sei intrecci e climax dall'elenco dei vincitori. Per questo "riapri voto" e "forza esito" sono un `pop` di `history`.
+- `server/session.js` — doppio binario: `history` (maggioranza → Main Screen) + i voti di ognuno (`Map<cid, Map<capitolo, tag>>`).
 - `public/` — 3 pagine vanilla; particelle su Canvas 2D.
 
 ## Limiti noti (MVP)
-- Reconnect entro la sessione via `cid` in `sessionStorage`; chiuso il processo, tutto sparisce (voluto).
-- Epilogo personale = template deterministico dallo stato. Aggancio LLM: vedi §11 del Master Prompt.
+- Reconnect via `cid` in `localStorage`: una scheda chiusa o un telefono riavviato ritrovano la sessione. Chiuso il processo, i voti spariscono (voluto); gli epiloghi già generati no, restano nei file.
+- Epilogo personale generato a fine capitolo 12. Senza `OPENROUTER_API_KEY` tutti ricevono uno dei 6 fallback pre-scritti — la serata regge comunque.
 - Nessun rate-limit sui voti (un voto per socket, sovrascrivibile). Adatto a una sala fidata, non a internet aperto.

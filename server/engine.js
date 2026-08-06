@@ -1,188 +1,200 @@
 // ==========================================================================
-// ENGINE — contenuti + riduttore di stato. Portati verbatim dall'MVP validato
-// (mvp-libro-vivo.html). Fonte meccaniche: Handoff §3/§4/§5.
-// L'engine è LINEARE (D13): tutti i capitoli, stesso ordine per tutti.
-// La divergenza per-utente è solo nello STATO accumulato, non nei capitoli.
+// ENGINE — solo funzioni pure. I testi stanno in content.js.
+//
+// Lo stato NON è accumulato: è DERIVATO da `history`, cioè dall'elenco dei
+// vincitori capitolo per capitolo. Dodici capitoli per sei intrecci: costo
+// nullo, e in cambio "riapri voto" e "forza esito" sono un pop di history
+// invece di logica di undo sui delta già applicati.
 // ==========================================================================
 
-const O = (t, tag, delega, axis, d, c) => ({ t, tag, delega, axis, d, c });
+import {
+  CHAPTERS, INTRECCI, ORACOLO_PER_I5, CLIMAX, SOGLIA_CLIMAX, BANDE
+} from "./content.js";
 
-export const CHAPTERS = [
-  { id: "clima", year: "2027", title: "L'estate in cui ci siamo accorti del clima",
-    beats: ["L'estate non finisce più: settembre ha il colore di luglio.",
-      "Il rapporto stava nel terzo cassetto, sotto i moduli per i rimborsi. L'aveva scritto qualcuno nel 2021 — un tecnico di cui nessuno ricordava il nome — e diceva tutto: i giorni sopra i quaranta gradi nel 2025, nel 2027, nel 2030. Colonne di numeri ordinate, gentili. Una previsione così esatta che, riletta adesso, sembrava un ricatto.",
-      "Marta lo trovò per caso, cercando un timbro. Fuori, il termometro della farmacia segnava 41 alle nove del mattino. Il condizionatore dell'ufficio faceva il rumore di una cosa che sta per arrendersi.",
-      { sig: "In un cassetto del Comune c'è un report del 2021. Aveva previsto tutto, anno per anno. Nessuno l'aveva mai aperto." },
-      { heatgrid: { from: "2027-04-01", days: 183, hot: 61, label: "giorni sopra i 40°C in Toscana, quest'anno" } },
-      "Nessuno aveva fatto niente di male. Avevano solo, ogni volta, scelto la cosa comoda: un grado in meno in casa, una riunione rimandata, una firma per l'anno prossimo. La catastrofe non è arrivata con un botto: è arrivata come arriva agosto, un giorno alla volta, e sempre uguale al precedente.",
-      "La città non è costruita per questo. E adesso bisogna decidere. In fretta."],
-    q: "L'estate è ingestibile. Come rispondiamo?",
-    opts: [O("Ci adattiamo: aria condizionata per tutti, e si tira avanti come prima.", "facile", 12, "equita", -1, "La sala sceglie il comodo. La rete elettrica comincia a soffrire, ma oggi non fa male a nessuno."),
-      O("Ci trasformiamo: cambiamo come vivere le città. Costa, e fa male adesso.", "difficile", -12, "equita", 1, "Meno comodità subito — ma la città resta una cosa nostra.")] },
+export { CHAPTERS, INTRECCI, START_DATE, REF_2040, FALLBACK } from "./content.js";
 
-  { id: "deepfake", year: "2028", title: "L'elezione che nessuno aveva votato",
-    beats: ["Durante l'emergenza climatica girava un video del sindaco, palesemente finto. Tutti ridevano.",
-      { sig: "Nessuno si era allarmato: era solo un gioco. Un anno dopo, un video identico ha spostato un'elezione vera." },
-      { counter: { to: 240000, label: "voti spostati da un solo video falso" } },
-      "Adesso ogni immagine può essere falsa. E lo sappiamo."],
-    q: "Non possiamo più fidarci di quello che vediamo. Che facciamo?",
-    opts: [O("Ci arrendiamo: tanto non si sa più cosa è vero, ognuno crede a chi vuole.", "facile", 12, "verita", -1, "Il dubbio diventa apatia. Vince chi grida più forte, non chi ha ragione."),
-      O("Costruiamo una verifica pubblica: lenta, noiosa, da difendere ogni giorno.", "difficile", -12, "verita", 1, "Costa fatica tenerla viva. Ma esiste ancora un posto dove un fatto è un fatto.")] },
+export const VOTABILI = CHAPTERS.filter(c => c.votabile);
+export const BIVI = VOTABILI.length;
 
-  { id: "memoria", year: "2030", title: "L'ultimo che ricordava a memoria",
-    beats: ["Dopo i deepfake, controllare un fatto a memoria era diventato inutile: tanto valeva chiedere alla macchina.",
-      { sig: "Già oggi nessuno sa più un numero di telefono. Presto nessuno saprà più nulla — perché può sempre chiederlo." },
-      { counter: { to: 54, label: "volte al giorno chiedi, invece di ricordare" } },
-      "Sapere e poter-chiedere sembrano la stessa cosa. Non lo sono."],
-    q: "Quanto teniamo nella nostra testa?",
-    opts: [O("Scarichiamo tutto: la memoria è un peso, la macchina la tiene per noi.", "facile", 12, "verita", -1, "Comodo. Ma senza niente in testa, dipendiamo dall'accesso — e da chi lo controlla."),
-      O("Ne coltiviamo un po': imparare a memoria sembra inutile, è autonomia.", "difficile", -12, "verita", 1, "Sembra masochismo. È la differenza tra sapere e chiedere.")] },
+// --------------------------------------------------------------------------
+// Stato di un singolo intreccio (Patch §4.5).
+// `winners` mappa numero-di-capitolo → "facile" | "difficile".
+// null = non ancora aperto · PARZIALE = aperto e non ancora chiuso.
+// --------------------------------------------------------------------------
+export function statoIntreccio(it, winners) {
+  const a = winners[it.nodo_apertura];
+  if (!a) return null;
 
-  { id: "arte", year: "2030", title: "Quando l'arte smise di avere un autore",
-    beats: ["Le immagini false dei deepfake erano già bellissime. Poi qualcuno ha detto: perché non usarle per fare arte?",
-      { sig: "All'inizio era un gioco gratis e infinito. Poi i primi illustratori hanno chiuso bottega." },
-      { counter: { to: 90000, label: "immagini generate nel mondo, ogni minuto" } },
-      "Una canzone nuova ogni secondo, un quadro ogni istante. Chi li fa, ormai, non è nessuno."],
-    q: "L'arte generata vale come quella umana? La paghiamo uguale?",
-    opts: [O("Vince il gratis-infinito: il mercato non fa sentimentalismi.", "facile", 12, "verita", -1, "I mestieri creativi evaporano. Resta tanta roba bella, e nessuno dietro."),
-      O("Difendiamo il valore dell'origine umana: qualcuno deve certificarla.", "difficile", -12, "verita", 1, "Chi decide cos'è 'umano'? Contro corrente, e complicato. Ma l'autore esiste ancora.")] },
+  // nodo singolo (I6): due soli esiti, nessuna terza via
+  if (it.nodo_chiusura == null) return a === "facile" ? "NEGATIVO" : "POSITIVO";
 
-  { id: "lavoro", year: "2031", title: "La generazione che non ha più un mestiere",
-    beats: ["L'arte generata aveva sostituito i primi creativi. Sembrava un caso isolato. Non lo era.",
-      { sig: "Prima sparirono i tirocini, poi le mansioni d'ingresso. Nessuno rimpiazzava: non serviva." },
-      { counter: { to: 71, unit: "%", label: "dei lavori d'ingresso, ormai automatizzati" } },
-      "Nel 2031 intere carriere non esistono più."],
-    q: "Il lavoro come lo conoscevamo è finito. Cosa scegliamo?",
-    opts: [O("Un reddito per tutti e tempo libero. In fondo non serve più lavorare.", "facile", 12, "coesione", -1, "Comodo. Ma una generazione mantenuta è anche una generazione che non serve a nessuno."),
-      O("Inventiamo mestieri di senso: nessuno sa quali, si costruiscono a mano.", "difficile", -12, "coesione", 1, "Incerto, faticoso. Ma il valore di una persona resta ciò che fa, non ciò che riceve.")] },
+  const b = winners[it.nodo_chiusura];
+  if (!b) return "PARZIALE";
 
-  { id: "medicina", year: "2032", title: "Il copilota del medico",
-    beats: ["Col lavoro avevamo imparato una cosa: la macchina, spesso, fa meglio di noi. Fidarsi era diventato normale.",
-      { sig: "Verificare la macchina sembrava ormai una perdita di tempo — quasi una mancanza di rispetto." },
-      { counter: { to: 93, unit: "%", label: "delle diagnosi: l'AI batte il medico umano" } },
-      "Ora l'AI è in sala operatoria. Più precisa di ogni chirurgo. Statisticamente, salva più vite."],
-    q: "Sotto i ferri, di chi ti fidi?",
-    opts: [O("Della macchina, sempre. Gli umani sbagliano di più.", "facile", 12, "equita", -1, "Il medico umano diventa un timbro. E con lui sparisce il 'perché ho deciso così'."),
-      O("L'AI consiglia, ma decide un umano — e ti guarda in faccia.", "difficile", -12, "equita", 1, "Più lento, più caro. Ma qualcuno resta responsabile di te.")] },
+  if (a === "facile") return b === "facile" ? "NEGATIVO" : "TERZA_VIA_PENTIMENTO";
+  return b === "difficile" ? "POSITIVO" : "TERZA_VIA_RESA";
+}
 
-  { id: "scuola", year: "2033", title: "Quando hanno chiuso le scuole (e ne hanno aperte di nuove)",
-    beats: ["Se ci fidavamo dell'AI in sala operatoria, perché non in aula? Il tutor-AI spiegava già meglio del prof.",
-      { sig: "Ognuno col suo tutor, al suo ritmo, sul suo divano. Efficientissimo. E ognuno per conto suo." },
-      { counter: { to: 68, unit: "%", label: "degli studenti impara solo col tutor-AI" } },
-      "La scuola come edificio pieno di gente diventa una spesa difficile da giustificare."],
-    q: "Che ce ne facciamo della scuola?",
-    opts: [O("Tutor-AI personale per ognuno: sapere su misura, zero frizione.", "facile", 12, "coesione", -1, "Impari tutto, da solo. Non impari più a stare con chi non hai scelto."),
-      O("La scuola resta il posto dove ci si scontra con gli altri.", "difficile", -12, "coesione", 1, "Lento, conflittuale, inefficiente. Cioè: umano.")] },
+// --------------------------------------------------------------------------
+// Indice di Delega — media delle quote "facile" sui capitoli votati (Patch §6).
+// I capitoli senza nemmeno un voto restano fuori dal denominatore: non hanno
+// una quota, anche se hanno un vincitore per fallback.
+// --------------------------------------------------------------------------
+export function indiceDelega(history) {
+  const quote = history
+    .filter(h => h.facile + h.difficile > 0)
+    .map(h => h.facile / (h.facile + h.difficile) * 100);
+  if (!quote.length) return null;
+  return Math.round(quote.reduce((a, b) => a + b, 0) / quote.length);
+}
 
-  { id: "giudice", year: "2034", title: "Il giudice di silicio",
-    beats: ["Il sistema che verificava le notizie, per non sbagliare, ha iniziato a dare un punteggio alle persone.",
-      { sig: "Nessuno ha votato per questo. È arrivato un aggiornamento alla volta, sempre 'per la tua sicurezza'." },
-      { counter: { to: 97, unit: "%", label: "delle sentenze AI: nessuno le ha appellate" } },
-      "Oggi un'AI giudica: senza stanchezza, senza pregiudizi dichiarati, più accurata dei tribunali umani."],
-    q: "Le lasciamo l'ultima parola su di noi?",
-    opts: [O("Sì. È più giusta di noi, e non si fa corrompere.", "facile", 14, "equita", -1, "Una giustizia che nessuno capisce fino in fondo — e che quasi nessuno può più appellare."),
-      O("No. L'AI assiste, ma è un umano che firma e ne risponde.", "difficile", -14, "equita", 1, "Restano gli errori umani. Ma resta anche qualcuno a cui chiedere conto.")] },
+export function banda(indice) {
+  if (indice == null) return null;
+  return indice < BANDE.basso ? "basso" : indice >= BANDE.alto ? "alto" : "medio";
+}
 
-  { id: "dati", year: "2035", title: "La piccola guerra dei dati",
-    beats: ["Con lo scoring del giudice, dare i propri dati in cambio di servizi sembrava solo pratico.",
-      { sig: "«Non ho niente da nascondere» era la frase più detta dell'anno. Ed era vera — finché non lo è stata." },
-      { counter: { to: 82, unit: "%", label: "di noi ripete: «non ho niente da nascondere»" } },
-      "Chi ha i dati addestra la macchina. Chi addestra la macchina decide."],
-    q: "I nostri dati: in cambio di tutto gratis, o li teniamo noi?",
-    opts: [O("Gratis è gratis. Tanto non ho niente da nascondere.", "facile", 12, "equita", -1, "Profilazione totale. La macchina sceglie per te prima ancora che tu ci pensi."),
-      O("Paghiamo per tenerci i dati. Anche se non tutti se lo possono permettere.", "difficile", -12, "equita", 1, "La privacy diventa un lusso. Ma resta una scelta, non un default.")] },
+// Capitolo 13: legge l'Indice contro la soglia, non introduce scelte nuove.
+// Indice null = nessun voto in tutta la serata: la soglia, per default, tiene.
+export function esitoClimax(indice) {
+  return (indice ?? 0) >= SOGLIA_CLIMAX ? CLIMAX.PERSA : CLIMAX.TENUTA;
+}
 
-  { id: "prompt", year: "2036", title: "La generazione che pensava in prompt",
-    beats: ["I ragazzi del 2036 parlano all'AI prima ancora che ai genitori. Per loro è l'aria.",
-      { sig: "Voi, in sala, siete la generazione di mezzo: vedete i vostri futuri figli da fuori." },
-      { counter: { to: 30, unit: " mesi", label: "l'età media del primo prompt a un'AI" } },
-      "Non chiedono più «come si fa?». Chiedono, e basta. Il pensiero parte già fatto."],
-    q: "I bambini crescono dentro l'AI. Assecondiamo o mettiamo argini?",
-    opts: [O("Nessun argine: è il loro mondo, sanno loro come viverlo.", "facile", 12, "coesione", -1, "Una generazione che non sa formulare un pensiero senza chiederlo prima."),
-      O("Spazi 'senza AI' per crescere: sembra reazionario.", "difficile", -12, "coesione", 1, "È palestra mentale. Faticosa, impopolare, necessaria.")] },
+// --------------------------------------------------------------------------
+// Lo stato del mondo, tutto insieme.
+// --------------------------------------------------------------------------
+export function derive(history) {
+  const winners = {};
+  for (const h of history) winners[h.n] = h.winner;
 
-  { id: "lucca", year: "2037", title: "Le mura di Lucca che diventarono uno schermo",
-    beats: ["Qui, dove siete seduti. Ogni superficie della città può raccontare qualunque storia.",
-      { sig: "Il turismo e l'AI già 'raccontavano' Lucca con storie generate. Belle. E non sempre vere." },
-      { counter: { to: 1200, label: "versioni della storia di Lucca, tutte «vere»" } },
-      "La storia di un luogo, ora, la scrive chi controlla lo schermo."],
-    q: "Chi decide qual è la storia vera di questo posto?",
-    opts: [O("La storia più cliccabile: è quella che porta turisti e soldi.", "facile", 12, "verita", -1, "L'identità del territorio va all'asta. Lucca diventa quello che rende di più."),
-      O("La comunità presidia la propria narrazione: lento e litigioso.", "difficile", -12, "verita", 1, "Ci si accapiglia su ogni pietra. Ma questo posto resta 'nostro'.")] },
+  const intrecci = {};
+  for (const it of INTRECCI) intrecci[it.id] = statoIntreccio(it, winners);
 
-  { id: "oracolo", year: "2038", title: "L'oracolo che si era sbagliato",
-    beats: ["Dal giudice in poi ci eravamo abituati a una cosa: la macchina è più accurata, punto.",
-      { sig: "Così avevamo iniziato a chiederle anche le decisioni grandi, quelle di tutti. E un giorno ha sbagliato di brutto." },
-      { counter: { to: 44, unit: "%", label: "delle decisioni pubbliche le prende l'oracolo" } },
-      "L'oracolo ha sbagliato. La domanda è: ce ne siamo accorti in tempo?"],
-    q: "Dopo l'errore dell'oracolo, cosa facciamo?",
-    opts: [O("È stato un caso. Continuiamo a fidarci: sbaglia meno di noi.", "facile", 14, "verita", -1, "Nessuno sa più decidere senza di lui. L'oracolo, sbagliando, resta l'autorità."),
-      O("Ci riprendiamo la decisione, coi nostri errori.", "difficile", -14, "verita", 1, "Scomodo, imperfetto, rivendicato. Torniamo a essere quelli che scelgono.")] },
+  const indice = indiceDelega(history);
+  return { winners, intrecci, indice, banda: banda(indice), climax: esitoClimax(indice) };
+}
 
-  { id: "climax", year: "2038 → 2039", title: "Quel giorno smisero di chiederci permesso", climax: true }
+// --------------------------------------------------------------------------
+// Esiti mostrabili alla sala fino al capitolo `n` incluso.
+// Un intreccio si rivela quando chiude il suo nodo di chiusura (Patch §4.3),
+// tranne I6 che è noto dal capitolo 2 e resta nascosto fino al 14.
+// --------------------------------------------------------------------------
+export function esitiVisibili(intrecci, n) {
+  const out = [];
+  for (const it of INTRECCI) {
+    const stato = intrecci[it.id];
+    if (!stato || stato === "PARZIALE") continue;
+    if ((it.rivela_a_capitolo ?? it.nodo_chiusura) > n) continue;
+    out.push({ id: it.id, asse: it.asse, stato, ...it.esiti[stato] });
+  }
+  return out;
+}
+
+// L'intreccio che si risolve chiudendo il voto del capitolo `n`, se ce n'è uno.
+// I6 ha `nodo_chiusura` nullo e quindi non compare mai qui: si determina al
+// capitolo 2 e non si mostra fino al 14 (Patch §4.3).
+export function chiudeA(n) {
+  return INTRECCI.find(it => it.nodo_chiusura === n) || null;
+}
+
+// L'intreccio che il capitolo `n` APRE, se ce n'è uno. Serve alla mezza figura:
+// dopo il voto la sala deve vedere che qualcosa si è messo in moto, senza sapere
+// cosa né in che direzione (§4.6). Include I6, che apre al capitolo 2 e non si
+// rivela fino al 14: anche quello, per la sala, è qualcosa che si sta formando.
+export function apreA(n) {
+  return INTRECCI.find(it => it.nodo_apertura === n) || null;
+}
+
+// --------------------------------------------------------------------------
+// SCENARIO GLOBALE (§7) — composto a runtime dai frammenti già scritti.
+// Le combinazioni sono 4⁵ × 2 × 2 = 4096: non esiste nessuna tabella di finali,
+// e non deve esistere. Quello che si compone è il raggruppamento: sei esiti
+// slegati diventano una frase sul mondo di QUESTA sala — cosa si è rotto, cosa
+// è cambiato per strada, cosa ha tenuto. È anche la scaletta del narratore.
+//
+// L'ordine non fabbrica speranza: se niente ha tenuto quel gruppo non c'è, e
+// la schermata finisce su quello che è rimasto rotto.
+// --------------------------------------------------------------------------
+const GRUPPI = [
+  { chiave: "rotto",  titolo: "Si è rotto",               stati: ["NEGATIVO"] },
+  { chiave: "meta",   titolo: "È cambiato a metà strada", stati: ["TERZA_VIA_PENTIMENTO", "TERZA_VIA_RESA"] },
+  { chiave: "tenuto", titolo: "Ha tenuto",                stati: ["POSITIVO"] }
 ];
 
-export const INTRECCI = [
-  { kind: "neg", need: { clima: "facile", dati: "facile" }, txt: "IL BUIO A PUNTEGGIO — l'energia scarsa la distribuisce l'algoritmo: chi ha lo score basso resta al caldo." },
-  { kind: "pos", need: { clima: "difficile", dati: "difficile" }, txt: "LA RETE DI QUARTIERE — l'energia scarsa la gestisce la comunità, con regole trasparenti." },
-  { kind: "neg", need: { deepfake: "facile", arte: "facile", lucca: "facile" }, txt: "LA CITTÀ IN VENDITA — nessuna fonte è vera: la storia del luogo la scrive chi paga di più." },
-  { kind: "pos", need: { deepfake: "difficile", arte: "difficile", lucca: "difficile" }, txt: "LA CITTÀ CHE SI RACCONTA — esiste una verità condivisa, la comunità presidia la propria storia." },
-  { kind: "neg", need: { memoria: "facile", scuola: "facile", prompt: "facile" }, txt: "LA TESTA VUOTA — una generazione che non sa più accorgersi quando l'oracolo sbaglia." },
-  { kind: "pos", need: { memoria: "difficile", scuola: "difficile", prompt: "difficile" }, txt: "LA TESTA ALLENATA — sai pensare senza chiedere: sei tu che fermi l'errore dell'oracolo." },
-  { kind: "neg", need: { lavoro: "facile", giudice: "facile" }, txt: "IL GUINZAGLIO DEL SUSSIDIO — non produci valore, lo score cala: il sussidio è diventato controllo." },
-  { kind: "pos", need: { lavoro: "difficile", giudice: "difficile" }, txt: "IL MESTIERE RITROVATO — il valore di una persona non è un punteggio." },
-  { kind: "neg", need: { medicina: "facile", giudice: "facile" }, txt: "IL TRIAGE SOCIALE — sotto i ferri conta lo score, non il caso: qualcuno non 'vale' l'operazione." },
-  { kind: "pos", need: { medicina: "difficile", giudice: "difficile" }, txt: "IL MEDICO CHE TI GUARDA IN FACCIA — conta la persona, non il numero." }
-];
-
-export const BIVI = CHAPTERS.filter(c => !c.climax).length;
-
-// Date del viaggio nei "5000 giorni". Giorno 0 = inizio del racconto.
-// Modificabili liberamente: guidano solo il contatore-interludio tra i capitoli.
-export const START_DATE = "2026-10-21";
-const DATES = {
-  clima: "2027-04-07", deepfake: "2028-09-16", memoria: "2030-01-27", arte: "2030-11-02",
-  lavoro: "2031-05-22", medicina: "2032-11-08", scuola: "2033-09-14", giudice: "2034-03-27",
-  dati: "2035-07-19", prompt: "2036-10-05", lucca: "2037-06-24", oracolo: "2039-11-09",
-  climax: "2040-06-29"
-};
-CHAPTERS.forEach(c => { c.date = DATES[c.id]; });
-
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-export function makeState() {
-  return { delega: 50, coesione: 0, verita: 0, equita: 0, choices: {}, fired: [] };
+export function componiScenario(intrecci) {
+  const esiti = esitiVisibili(intrecci, 14);
+  return GRUPPI
+    .map(g => ({ chiave: g.chiave, titolo: g.titolo, esiti: esiti.filter(e => g.stati.includes(e.stato)) }))
+    .filter(g => g.esiti.length);
 }
 
-export function checkIntrecci(s) {
-  INTRECCI.forEach((it, idx) => {
-    if (s.fired.includes(idx)) return;
-    if (Object.entries(it.need).every(([k, v]) => s.choices[k] === v)) s.fired.push(idx);
-  });
+// Quanti intrecci sono aperti e non ancora chiusi. La rappresentazione a
+// schermo deve essere UNICA e indipendente dall'esito che si sta formando,
+// o la sala impara a leggere il segno e corregge il voto dopo (Patch §4.6).
+export function contaParziali(intrecci) {
+  return Object.values(intrecci).filter(s => s === "PARZIALE").length;
 }
 
-// riduttore puro — identico all'MVP, applicato SIA al collettivo SIA a ogni personale
-export function applyChoice(s, chapter, opt) {
-  s.delega = clamp(s.delega + opt.delega, 0, 100);
-  s[opt.axis] = clamp(s[opt.axis] + opt.d, -3, 3);
-  s.choices[chapter.id] = opt.tag;
-  checkIntrecci(s);
-  return s;
+// Il capitolo 12 non apre nessun intreccio: mostra una variante determinata
+// da I5, che a quel punto è sempre risolto (chiude al capitolo 11).
+export function testoOracolo(intrecci) {
+  return ORACOLO_PER_I5[intrecci.I5] || null;
 }
 
-export function optByTag(chapter, tag) {
-  return chapter.opts && chapter.opts.find(o => o.tag === tag);
+// --------------------------------------------------------------------------
+// ETÀ — calendario-consapevole (Patch §8.2). Non aritmetica su 365 giorni, o
+// le cifre finali risultano visibilmente sbagliate proprio nella riga che
+// ogni studente legge per prima.
+// Tutto in UTC: l'ora legale sposterebbe i conteggi di un giorno.
+// --------------------------------------------------------------------------
+export function etaAl(nascitaISO, riferimentoISO) {
+  if (!isDataValida(nascitaISO) || !isDataValida(riferimentoISO)) return null;
+  const n = new Date(nascitaISO + "T00:00:00Z"), r = new Date(riferimentoISO + "T00:00:00Z");
+  if (n > r) return null;
+
+  let anni = r.getUTCFullYear() - n.getUTCFullYear();
+  let mesi = r.getUTCMonth() - n.getUTCMonth();
+  if (r.getUTCDate() < n.getUTCDate()) mesi--;
+  if (mesi < 0) { mesi += 12; anni--; }
+
+  // I giorni si contano davvero, non si prendono in prestito da un mese: si
+  // avanza la data di nascita di anni+mesi e si misura quel che resta.
+  // Prestare dal mese precedente lascia i giorni negativi quando si è nati il
+  // 31 e quel mese ne ha 28 o 30 — e il 29 febbraio cade proprio lì vicino.
+  const avanzata = new Date(Date.UTC(n.getUTCFullYear() + anni, n.getUTCMonth() + mesi, 1));
+  const ultimoDelMese = new Date(Date.UTC(avanzata.getUTCFullYear(), avanzata.getUTCMonth() + 1, 0)).getUTCDate();
+  avanzata.setUTCDate(Math.min(n.getUTCDate(), ultimoDelMese));   // 31 gennaio + 1 mese = 28/29 febbraio
+
+  return { anni, mesi, giorni: Math.round((r - avanzata) / 86400000) };
 }
 
-export function attractor(delega) {
-  if (delega <= 38) return { name: "Le Mani sul Volante", sub: "faticoso, ma ancora nostro" };
-  if (delega >= 62) return { name: "Il Pilota Automatico", sub: "comodo, non più in mano nostra" };
-  return { name: "In bilico", sub: "alcune soglie tenute, altre no" };
+// "2008-02-30" non è NaN per Date: rotola al 1° marzo. Il round-trip lo becca.
+export function isDataValida(iso) {
+  if (typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const d = new Date(iso + "T00:00:00Z");
+  return !isNaN(d) && d.toISOString().slice(0, 10) === iso;
 }
 
-// verdetto del climax (legge lo stato, non è un bivio) — porta da buildClimax dell'MVP
-export function climaxVerdict(delega) {
-  if (delega >= 62) return "Gli agenti hanno smesso di chiedere il permesso. E quasi nessuno se n'è accorto: quel permesso l'avevamo già dato via, un sì comodo alla volta. Questo mondo, adesso, non è più in mano nostra. E non si torna indietro.";
-  if (delega <= 38) return "Gli agenti, ancora oggi, chiedono. Abbiamo pagato caro per tenerci quella soglia — ogni volta rallentando, ogni volta rinunciando a una comodità. Ed è l'unica ragione per cui, nel 2038, possiamo ancora dire: è il nostro mondo.";
-  return "Il mondo è rimasto in bilico. Certe soglie le abbiamo difese, altre lasciate andare. Gli agenti chiedono permesso quando gli conviene — e nessuno sa più bene chi comanda.";
+const plurale = (n, uno, molti) => `${n} ${n === 1 ? uno : molti}`;
+
+export function formattaEta(eta) {
+  if (!eta) return null;
+  return [
+    plurale(eta.anni, "anno", "anni"),
+    plurale(eta.mesi, "mese", "mesi"),
+    plurale(eta.giorni, "giorno", "giorni")
+  ].join(", ");
+}
+
+// --------------------------------------------------------------------------
+// Le due opzioni di un capitolo, nella forma che va in vista.
+// --------------------------------------------------------------------------
+export function opzioni(ch) {
+  if (!ch || !ch.votabile) return null;
+  return {
+    q: ch.q,
+    opts: [
+      { tag: "facile", ...ch.opzione_facile },
+      { tag: "difficile", ...ch.opzione_difficile }
+    ]
+  };
 }
