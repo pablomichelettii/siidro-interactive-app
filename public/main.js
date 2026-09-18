@@ -1,7 +1,9 @@
 // MAIN SCREEN — stato via websocket + particelle (Canvas 2D) + transizioni GSAP
-// + interludio "giorni nel futuro" tra un capitolo e l'altro.
+// + interludio (wheel) tra un esempio e l'altro.
 const socket = io({ query: { role: "main" } });
-const OCHRE = "#ecae31", TERRA = "#e18e74", WHITE = "rgba(255,255,255,0.82)";
+// I colori dei poli, nell'ordine delle opzioni (brandboard: --pole-1..4).
+// Duplicati qui perché il canvas non legge le custom properties del CSS.
+const POLI = ["#4391FF", "#F0EBE1", "#2D63B8", "#8E8E8E"], WHITE = "rgba(240,235,225,0.65)";
 const $ = (id) => document.getElementById(id);
 const G = window.gsap;
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -13,7 +15,10 @@ $("qr").src = "/qr?data=" + encodeURIComponent(location.origin + "/?role=device"
 // ==========================================================================
 const canvas = $("fx"), ctx = canvas.getContext("2d");
 const particles = new Map();
-let poles = { facile: null, difficile: null };
+// Un polo per opzione, chiave = tag. Si popolano da quello che il DOM ha
+// davvero disegnato: le coordinate sono del canvas, non si inventano.
+let poles = {};
+const coloreTag = new Map();      // tag -> colore, per indice dell'opzione
 // il canvas copre l'INTERO documento (scrolla coi contenuti), non il viewport
 function sizeCanvas() {
   const w = document.documentElement.clientWidth;
@@ -35,15 +40,17 @@ function reconcile(cids) {
   for (const cid of particles.keys()) if (!set.has(cid)) particles.delete(cid);
   cids.forEach(ensure);
 }
-function setOrbit(p, tag) { p.target = tag; p.spin = Math.random() < 0.5 ? -1 : 1; p.color = tag === "facile" ? TERRA : OCHRE; }
+function setOrbit(p, tag) { p.target = tag; p.spin = Math.random() < 0.5 ? -1 : 1; p.color = coloreTag.get(tag) || WHITE; }
 function clearOrbits() { for (const p of particles.values()) { p.target = null; p.color = WHITE; const a = Math.random() * Math.PI * 2; p.vx = Math.cos(a) * 0.5; p.vy = Math.sin(a) * 0.5; } }
 function polePos() {
   const votingVisible = !$("voteArea").classList.contains("hidden") && !$("game").classList.contains("hidden");
-  if (votingVisible) {
-    // coordinate-documento (il canvas parte da top:0): aggiungo lo scroll
-    const r = (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2 + scrollX, y: b.top + b.height / 2 + scrollY }; };
-    poles.facile = r($("poleFacile")); poles.difficile = r($("poleDifficile"));
-  } else { poles.facile = null; poles.difficile = null; }
+  poles = {};
+  if (!votingVisible) return;
+  // coordinate-documento (il canvas parte da top:0): aggiungo lo scroll
+  for (const el of document.querySelectorAll("#poles .pole")) {
+    const b = el.getBoundingClientRect();
+    poles[el.dataset.tag] = { x: b.left + b.width / 2 + scrollX, y: b.top + b.height / 2 + scrollY };
+  }
 }
 // --- BOIDS idle: lento e un po' caotico -----------------------------------
 // Reynolds (separazione + allineamento + coesione) + wander casuale. O(n²);
@@ -120,55 +127,7 @@ function beatHTML(b) {
   if (typeof b === "string") return `<p class="beat">${b}</p>`;
   if (b.sig) return `<p class="signal">${b.sig}</p>`;
   if (b.counter) return `<div class="counter" data-to="${b.counter.to}" data-unit="${b.counter.unit || ""}">0<small>${b.counter.label}</small></div>`;
-  if (b.heatgrid) { const h = b.heatgrid;
-    return `<figure class="heatgrid" data-hot="${h.hot}" aria-label="${h.hot} ${h.label}">`
-      + `<div class="hg-cal">${heatCells(h.from, h.days, h.hot)}</div>`
-      + `<figcaption><b class="hg-count">0</b> ${h.label}</figcaption></figure>`;
-  }
   return "";
-}
-// Calendario del caldo: una RIGA per mese (etichettata), una COLONNA per giorno 1–31.
-// I giorni caldi sono addensati a metà stagione (fine luglio) con qualche tregua: look di ondata.
-// ponytail: distribuzione illustrativa deterministica, non dati reali.
-const MONTHS_IT = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
-function heatCells(fromISO, days, hot) {
-  const center = days * 0.52;                                                    // picco: fine luglio
-  const order = [...Array(days).keys()].sort((a, b) => Math.abs(a - center) - Math.abs(b - center));
-  const hotSet = new Set();
-  for (const i of order) { if (hotSet.size >= hot) break; if (i % 9 === 3) continue; hotSet.add(i); } // qualche tregua
-  for (const i of order) { if (hotSet.size >= hot) break; hotSet.add(i); }                            // completa a quota
-  const d = new Date(fromISO), end = new Date(fromISO); end.setDate(end.getDate() + days);
-  let html = "", idx = 0;
-  while (d < end) {                                                              // una riga per mese
-    const m = d.getMonth(), y = d.getFullYear(), inMonth = new Date(y, m + 1, 0).getDate();
-    html += `<span class="hg-mon">${MONTHS_IT[m]}</span>`;
-    for (let dm = 1; dm <= 31; dm++) {                                           // 31 colonne fisse
-      if (dm <= inMonth && d < end && d.getDate() === dm) {
-        html += `<i class="hg-cell${hotSet.has(idx) ? " hot" : ""}"></i>`;
-        idx++; d.setDate(d.getDate() + 1);
-      } else html += `<i class="hg-pad"></i>`;                                   // giorno inesistente o fuori range
-    }
-  }
-  return html;
-}
-function runHeatGrid() {
-  document.querySelectorAll("#chBody .heatgrid").forEach(fig => {
-    const cells = fig.querySelectorAll(".hg-cell"), hot = fig.querySelectorAll(".hg-cell.hot");
-    const countEl = fig.querySelector(".hg-count"), target = +fig.dataset.hot;
-    if (REDUCED || !G) { hot.forEach(c => c.classList.add("on")); countEl.textContent = fmtNum(target); return; }
-    const dur = hot.length * 0.02 + 0.3, o = { n: 0 };
-    G.timeline()
-      .from(cells, { opacity: 0, scale: 0.3, transformOrigin: "50% 50%", duration: 0.25, ease: "power1.out", stagger: { each: 0.01, from: "start" } })
-      .to(hot, { backgroundColor: "#e18e74", boxShadow: "0 0 8px #e18e74", duration: 0.3, ease: "power1.out", stagger: { each: 0.02, from: "start" } }) // il rosso si accende in ordine cronologico
-      .to(o, { n: target, duration: dur, ease: "none", onUpdate: () => countEl.textContent = fmtNum(o.n) }, "<"); // il contatore sale in sincrono
-  });
-}
-// Un esito risolto. La classe dice il segno: la terza via non ne ha uno.
-const SEGNO = { NEGATIVO: "neg", POSITIVO: "pos", TERZA_VIA_PENTIMENTO: "terza", TERZA_VIA_RESA: "terza" };
-function esitiHTML(list) {
-  return list.length ? list.map(e =>
-    `<div class="fired ${SEGNO[e.stato]}"><span class="nome">${e.nome}</span>${e.testo}</div>`).join("")
-    : `<div class="muted" style="font-size:0.85rem">Niente si è ancora saldato. Gli eventi si sommeranno.</div>`;
 }
 function runCounters() {
   document.querySelectorAll("#chBody .counter").forEach(el => {
@@ -177,130 +136,74 @@ function runCounters() {
     const o = { n: 0 };
     G.to(o, { n: to, duration: 1.4, ease: "power2.out", onUpdate: () => { el.childNodes[0].nodeValue = Math.round(o.n).toLocaleString("it-IT") + unit; } });
   });
-  runHeatGrid();
 }
-const fmtNum = (n) => Math.round(n).toLocaleString("it-IT");
-const fmtDate = (iso) => new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
-const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 
-// --- timeline scrollabile ------------------------------------------------
-const PPD = 4;              // pixel per giorno (spaziatura del nastro)
-const START_HOLD = 0.55;    // pausa sul punto di partenza (fa vedere lo 0)
-const SCROLL_DUR = 2.4;     // durata dello scorrimento
+// --- interludio ----------------------------------------------------------
+// Senza un nastro di date da percorrere non c'è più niente da far scorrere:
+// resta la wheel, che è l'effetto riconoscibile. Il titolo nasce grande al
+// centro, tiene, e si rimpicciolisce nella sua posizione a riposo in alto.
+const HOLD = 1.2;           // quanto la wheel resta ferma al centro — da ritarare in sala, col proiettore vero
+const GROW = 0.9;           // crescita e rientro
 const WHEEL_SCALE = 4.2;    // quanto la wheel è più grande del titolo a riposo (calibrabile)
 const REST_SCALE = 1 / WHEEL_SCALE;   // il titolo è la wheel rimpicciolita (downscale = nitido)
 const WHEEL_CY = 0.42;      // centro verticale della wheel, in frazione di viewport
-let trackBuilt = false, titleShown = false;
-function buildTrack(startISO, endDays) {
-  if (trackBuilt) return;
-  const track = $("iTrack"); const start = new Date(startISO);
-  const span = isFinite(endDays) ? endDays : 4500;
-  let d = new Date(start.getFullYear(), start.getMonth(), 1), html = "", guard = 0;
-  while (guard++ < 4000) {                        // una tacca al mese, etichetta a gennaio
-    const off = Math.round((d - start) / 86400000);
-    if (off > span + 60) break;
-    if (off >= -31) {
-      const isYear = d.getMonth() === 0;
-      html += `<div class="tick${isYear ? " year" : ""}" style="left:${off * PPD}px">${isYear ? `<span class="lab">${d.getFullYear()}</span>` : ""}</div>`;
-    }
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-  }
-  track.innerHTML = html; trackBuilt = true;
-}
+let titleShown = false;
 
 // Un solo elemento (#iReadout) fa da titolo persistente in alto e, al cambio
-// capitolo, cresce al centro come "wheel", conta i giorni, e torna titolo.
-// È lo STESSO elemento che scala → titolo e wheel hanno sempre proporzioni
-// coerenti, nessuno scambio, nessuno scatto di dimensioni.
-function playInterstitial(fromDays, toDays, dateISO, startISO, endISO) {
-  const valid = dateISO && !isNaN(new Date(dateISO)) && isFinite(fromDays) && isFinite(toDays);
-  if (!valid) return Promise.resolve();
-  buildTrack(startISO, daysBetween(startISO, endISO));
-  const readout = $("iReadout"), track = $("iTrack"), daysEl = $("iDays"), dateEl = $("iDate");
-  const startMs = new Date(startISO).getTime();
-  const setAt = (day) => {
-    track.style.transform = `translateX(${-day * PPD}px)`;        // scorre il nastro
-    daysEl.textContent = fmtNum(day);
-    dateEl.textContent = fmtDate(new Date(startMs + Math.round(day) * 86400000));
-  };
+// esempio, cresce al centro come "wheel" e torna titolo. È lo STESSO elemento
+// che scala → nessuno scambio, nessuno scatto di dimensioni.
+function playInterstitial(occhiello, titolo) {
+  if (!titolo) return Promise.resolve();
+  const readout = $("iReadout");
+  $("iOcchiello").textContent = occhiello || "";
+  $("iTitolo").textContent = titolo;
   // stato TITOLO = wheel rimpicciolita in alto; stato WHEEL = scala 1 (nativa, nitida) al centro.
   const restY = (r) => r.height * REST_SCALE / 2 - r.height / 2;   // il titolo (ridotto) si ancora a top:14px
   const wheelY = (r) => innerHeight * WHEEL_CY - (r.top + r.height / 2);
   if (REDUCED || !G) {
-    setAt(toDays);
     const r = readout.getBoundingClientRect();
     readout.style.transform = `translateY(${restY(r)}px) scale(${REST_SCALE})`;
     readout.style.opacity = 1; titleShown = true; return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const genesis = !titleShown;                                   // 1° capitolo: nessun titolo precedente, la wheel nasce
+    const genesis = !titleShown;                                   // 1° esempio: nessun titolo precedente, la wheel nasce
     G.set(readout, { clearProps: "transform" });                   // torna a dimensione nativa (wheel) per misurarla
-    setAt(fromDays);                                               // il titolo mostra GIÀ i giorni di partenza → nessun numero che salta
     const r = readout.getBoundingClientRect();
     const tY = restY(r), wY = wheelY(r);
-    const proxy = { d: fromDays };
     G.set(readout, { x: 0, y: tY, scale: REST_SCALE, opacity: genesis ? 0 : 1 });   // parte come titolo (o nasce, se genesis)
     G.timeline({ onComplete: () => { titleShown = true; resolve(); } })
-      // TITOLO → WHEEL: cresce al centro (fino a scala 1 = nitida); sfondo e timeline compaiono insieme
+      // TITOLO → WHEEL: cresce al centro (fino a scala 1 = nitida)
       .to("#iBg", { opacity: 1, duration: 0.7, ease: "power2.out" }, 0)
-      .to(readout, { opacity: 1, y: wY, scale: 1, duration: 0.9, ease: "power3.inOut" }, 0)
-      .to("#iTimeline", { opacity: 1, duration: 0.6, ease: "power2.out" }, genesis ? 0.35 : 0.2)
-      .to({}, { duration: genesis ? START_HOLD + 0.4 : START_HOLD })
-      // CONTEGGIO: la timeline scorre e il numero sale da fromDays a toDays
-      .to(proxy, { d: toDays, duration: SCROLL_DUR, ease: "power2.inOut", onUpdate: () => setAt(proxy.d) })
-      .to({}, { duration: 0.4 })                                   // stop sul target
-      // WHEEL → TITOLO: torna piccola in alto; sfondo e timeline svaniscono insieme
-      .to(readout, { y: tY, scale: REST_SCALE, duration: 0.9, ease: "power3.inOut" })
-      .to("#iBg", { opacity: 0, duration: 0.6, ease: "power2.in" }, "<")
-      .to("#iTimeline", { opacity: 0, duration: 0.5, ease: "power2.in" }, "<");
+      .to(readout, { opacity: 1, y: wY, scale: 1, duration: GROW, ease: "power3.inOut" }, 0)
+      .to({}, { duration: genesis ? HOLD + 0.4 : HOLD })
+      // WHEEL → TITOLO: torna piccola in alto, e lì resta per tutto l'esempio
+      .to(readout, { y: tY, scale: REST_SCALE, duration: GROW, ease: "power3.inOut" })
+      .to("#iBg", { opacity: 0, duration: 0.6, ease: "power2.in" }, "<");
   });
 }
 
 // ==========================================================================
 // RENDER capitolo / voto / finale
 // ==========================================================================
+// Occhiello e titolo stanno nel readout in alto, lasciati lì dall'interludio:
+// qui va solo il corpo dell'esempio.
 function fillChapter(s) {
-  $("chYear").textContent = s.chapter.anno;
-  $("chTitle").textContent = s.chapter.titolo;
-  let html = (s.chapter.beats || []).map(beatHTML).join("");
-  // capitolo 12: la variante che dipende da I5 · capitolo 13: il verdetto sull'Indice
-  if (s.chapter.oracolo) html += `<p class="signal">${s.chapter.oracolo}</p>`;
-  if (s.chapter.ruolo === "climax" && s.climax) html += `<p class="signal">${s.climax.testo}</p>`;
-  html += scenarioHTML(s);           // solo al capitolo 14: è quello che compone
-  $("chBody").innerHTML = html;
+  // senza beats scritti, in narrazione si legge la domanda: mai una slide vuota
+  $("chBody").innerHTML = (s.chapter.beats || []).map(beatHTML).join("")
+    || (s.chapter.q ? beatHTML({ sig: s.chapter.q }) : "");
 }
 function animateChapterIn(s) {
   fillChapter(s);
   if (REDUCED || !G) { runCounters(); return; }
   G.set("#col", { opacity: 1 });
   G.timeline()
-    .from("#chYear", { opacity: 0, y: 24, duration: 0.5, ease: "power3.out" })
-    .from("#chTitle", { opacity: 0, y: 48, duration: 0.7, ease: "power4.out" }, "-=0.35")
-    .from("#chBody > *", { opacity: 0, y: 28, stagger: 0.1, duration: 0.6, ease: "power2.out" }, "-=0.4")
+    .from("#chBody > *", { opacity: 0, y: 28, stagger: 0.1, duration: 0.6, ease: "power2.out" })
     .add(runCounters, "-=0.2");
 }
 function animateVoteIn() {
   if (REDUCED || !G) return;
   G.from("#voteQ", { opacity: 0, y: 20, duration: 0.5, ease: "power3.out" });
   // box risposta STATICI: nessuna animazione d'ingresso. Solo i numeri pulsano (vedi main:tally).
-}
-
-// SCENARIO GLOBALE — sei esiti raggruppati per cosa hanno fatto al mondo, più
-// l'Indice e il climax. Un solo renderer: lo usa il capitolo 14, che compone, e
-// la schermata finale, così resta consultabile dopo (§7).
-function scenarioHTML(s) {
-  if (!s.scenario) return "";
-  return `<div class="scenario">
-    <div class="year">Il mondo che avete costruito</div>
-    <div class="indice"><b>${s.indice == null ? "—" : s.indice + "%"}</b> di delega${s.banda ? ` · banda ${s.banda}` : ""}</div>
-    ${s.scenario.map(g => `<section class="gruppo ${g.chiave}">
-      <h3>${g.titolo}<span class="conta">${g.esiti.length}</span></h3>
-      ${esitiHTML(g.esiti)}
-    </section>`).join("")}
-    <div class="chiusura ${s.climax.esito === "PERSA" ? "neg" : "pos"}">
-      <span class="nome">${s.climax.nome}</span>${s.climax.testo}
-    </div>
-  </div>`;
 }
 
 // Timer del voto. Il server manda i ms che restano, non un istante assoluto:
@@ -318,33 +221,44 @@ function runVoteTimer(restaMs, durataSec) {
   voteTl = G.to(bar, { scaleX: 0, duration: restaMs / 1000, ease: "none" });
 }
 
-// La mezza figura: identica sempre, e non riceve nemmeno il dato per essere
-// diversa. Vedi il commento in main.html.
-const PARZIALE_HTML = `<div class="parziale">
-  <div class="redacted">${[7, 4, 9, 5, 6].map(w => `<i style="width:${w * 0.7}em"></i>`).join("")}</div>
-  <div class="half"><i></i></div>
-  <p>Qualcosa ha cominciato a formarsi. Si vedrà più avanti.</p>
-</div>`;
-
-// La rivelazione: la sala vede cosa ha scelto e, se il capitolo chiudeva un
-// intreccio, l'esito col nome che il narratore annuncia.
+// La rivelazione: cosa ha scelto la sala, la forbice completa di tutti i tag,
+// il costo nascosto di quello che ha vinto e la chiusura scritta, se c'è.
 let revealShown = false;
 function renderReveal(r) {
-  $("revLabel").textContent = r.winner === "facile" ? "La sala ha scelto la comodità" : "La sala ha scelto la fatica";
   $("revChoice").textContent = r.label;
-  $("revF").textContent = r.facile;
-  $("revD").textContent = r.difficile;
-  $("revCosto").textContent = r.costo;
-  $("revEsito").innerHTML = r.esito ? esitiHTML([r.esito]) : r.parziale ? PARZIALE_HTML : "";
+  $("revCosto").textContent = r.costo || "";
+  $("revTally").innerHTML = r.opts.map((o, i) =>
+    `<div class="voce" style="--c:${POLI[i % POLI.length]}">${r.conteggi[o.tag] ?? 0}<small>${esc(o.label)}</small></div>`).join("");
+  $("revChiusura").textContent = r.chiusura || "";
+  $("revChiusura").classList.toggle("hidden", !r.chiusura);
   if (revealShown || REDUCED || !G) return;
   revealShown = true;
-  const tl = G.timeline()
-    .from("#revLabel, #revChoice, .revtally, #revCosto", { opacity: 0, y: 20, stagger: 0.12, duration: 0.5, ease: "power3.out" });
-  // l'esito arriva dopo una pausa piena: è il momento in cui il narratore parla
-  if (r.esito) tl.from("#revEsito .fired", { opacity: 0, y: 40, duration: 0.9, ease: "power3.out" }, "+=0.8");
-  // la mezza figura entra piano e la barra si ferma a metà: sta arrivando, non è arrivata
-  if (r.parziale) tl.from("#revEsito .parziale", { opacity: 0, duration: 1.1, ease: "power2.out" }, "+=0.5")
-    .from("#revEsito .parziale .half > i", { scaleX: 0, transformOrigin: "left center", duration: 1.2, ease: "power2.inOut" }, "-=0.5");
+  G.timeline()
+    .from("#revChoice, #revTally .voce, #revCosto", { opacity: 0, y: 20, stagger: 0.12, duration: 0.5, ease: "power3.out" })
+    // la chiusura arriva dopo una pausa piena: è il momento in cui si parla
+    .from("#revChiusura", { opacity: 0, y: 24, duration: 0.8, ease: "power3.out" }, "+=0.6");
+}
+
+// I poli sono generati da qui, non scritti a mano: da 2 a 4, colore per indice.
+// Rigenerarli a ogni sync farebbe ripartire le animazioni e perderebbe il DOM
+// sotto le particelle: si ridisegnano solo quando cambiano davvero le opzioni.
+let poliTags = "";
+function renderPoles(opts) {
+  const firma = opts.map(o => o.tag).join("|");
+  coloreTag.clear();
+  opts.forEach((o, i) => coloreTag.set(o.tag, POLI[i % POLI.length]));
+  if (firma === poliTags) return;
+  poliTags = firma;
+  const box = $("poles");
+  box.classList.toggle("stretta", opts.length > 2);
+  box.innerHTML = opts.map((o, i) => `<div class="pole" data-tag="${esc(o.tag)}" style="--c:${POLI[i % POLI.length]}">
+      <div>
+        <div class="opt">${esc(o.label)}</div>
+        ${o.guadagno ? `<div class="gain"><b>Cosa guadagni</b>${esc(o.guadagno)}</div>` : ""}
+        ${o.costo_nascosto ? `<div class="cost"><b>Cosa paghi</b>${esc(o.costo_nascosto)}</div>` : ""}
+      </div>
+      <div class="n">0</div>
+    </div>`).join("");
 }
 
 let bodyIndex = -1, voteShown = false;
@@ -365,16 +279,8 @@ function renderBody(s) {
   revealShown = false;                   // se il regista riapre il voto, l'esito si rigioca
   if (voting) {
     $("voteQ").textContent = s.options.q;
-    const fill = (id, o) => {
-      const el = $(id);
-      el.querySelector(".opt").textContent = o ? o.label : "";
-      el.querySelector(".gain").innerHTML = o ? `<b>Cosa guadagni</b>${o.guadagno}` : "";
-      el.querySelector(".cost").innerHTML = o ? `<b>Cosa paghi</b>${o.costo_nascosto}` : "";
-    };
-    fill("poleFacile", s.options.opts.find(o => o.tag === "facile"));
-    fill("poleDifficile", s.options.opts.find(o => o.tag === "difficile"));
+    renderPoles(s.options.opts);
     showTally(s.tally, false);
-    $("poleFacile").classList.remove("win"); $("poleDifficile").classList.remove("win");
     if (!voteShown) {
       voteShown = true; clearOrbits();
       runVoteTimer(s.voteRestaMs, s.voteDurata);
@@ -383,42 +289,95 @@ function renderBody(s) {
   } else { voteShown = false; clearOrbits(); runVoteTimer(null); }
   polePos();
 }
-// La schermata finale è lo STESSO scenario del capitolo 14: resta lì, e resta
-// consultabile. Non è una seconda composizione, è la stessa che non se ne va.
+// La schermata finale: l'elenco degli esempi con quello che ha scelto il tavolo.
 function renderEnded(s) {
-  $("endedScenario").innerHTML = scenarioHTML(s);
-  if (s.consensus) $("consensus").textContent = `${s.consensus.same} in linea con la sala · ${s.consensus.diverge} su un'altra strada`;
-  $("aggregates").innerHTML = (s.aggregates || []).map(a => `<div class="agg"><span>${a.anno} · ${a.titolo}</span><b>${a.winner}</b></div>`).join("");
-  if (G && !REDUCED) G.timeline()
-    .from("#endedScenario .gruppo", { opacity: 0, y: 24, stagger: 0.18, duration: 0.6, ease: "power3.out" })
-    .from("#endedScenario .chiusura", { opacity: 0, y: 30, duration: 0.8, ease: "power3.out" }, "+=0.3")
-    .from("#aggregates .agg", { opacity: 0, x: 20, stagger: 0.05, duration: 0.4 }, "-=0.4");
+  $("aggregates").innerHTML = (s.aggregates || []).map(a => {
+    const tot = Object.values(a.conteggi).reduce((x, y) => x + y, 0);
+    return `<div class="agg"><span>${esc(a.titolo)}</span><b>${esc(a.winnerLabel)}</b><span class="muted">${a.conteggi[a.winner]}/${tot}</span></div>`;
+  }).join("");
+  if (G && !REDUCED) G.from("#aggregates .agg", { opacity: 0, x: 20, stagger: 0.08, duration: 0.45, ease: "power2.out" });
+}
+
+// ==========================================================================
+// CHAT — bolle che salgono nella banda bassa. Niente arriva qui se non è
+// passato dall'approvazione del regista: il server manda main:chat solo allora.
+// ==========================================================================
+const MAX_BOLLE = 3;            // tre corsie: di più e la banda bassa diventa rumore
+let bollaMs = 12000;            // permanenza, dal server (CHAT_BOLLA_MS)
+const codaBolle = [];
+const corsie = [null, null, null];   // quale bolla occupa quale corsia
+
+socket.on("main:chat", (m) => { codaBolle.push(m); pompaBolle(); });
+
+function pompaBolle() {
+  let c;
+  while (codaBolle.length && (c = corsie.indexOf(null)) >= 0) mostraBolla(codaBolle.shift(), c);
+}
+
+// Il testo esce da una sequenza di glifi: è un effetto, non una lettura. Se
+// costa troppo su un proiettore lento, si toglie e resta la salita.
+const GLIFI = "01/#01//10<>01";
+function decodifica(el, testo, ms) {
+  const t0 = performance.now();
+  const passo = (t) => {
+    const k = Math.min(1, (t - t0) / ms);
+    const fissi = Math.round(k * testo.length);
+    el.textContent = testo.slice(0, fissi) + [...testo.slice(fissi)]
+      .map(c => c === " " ? " " : GLIFI[(Math.random() * GLIFI.length) | 0]).join("");
+    if (k < 1) requestAnimationFrame(passo);
+    else { el.textContent = testo; el.parentElement?.classList.add("finita"); }
+  };
+  requestAnimationFrame(passo);
+}
+
+function mostraBolla(m, corsia) {
+  corsie[corsia] = m.id;
+  const el = document.createElement("div");
+  el.className = "bolla c" + corsia;
+  el.innerHTML = `<span class="chi">${esc(m.nome)}</span><span class="txt"></span>`;
+  $("chat").appendChild(el);
+  const via = () => { el.remove(); corsie[corsia] = null; pompaBolle(); };
+  if (REDUCED || !G) {                       // niente salita né decodifica: solo dissolvenza
+    el.querySelector(".txt").textContent = m.testo;
+    el.classList.add("finita");
+    el.style.transition = "opacity .4s"; el.style.opacity = 0;
+    requestAnimationFrame(() => el.style.opacity = 1);
+    setTimeout(() => { el.style.opacity = 0; setTimeout(via, 400); }, bollaMs);
+    return;
+  }
+  decodifica(el.querySelector(".txt"), m.testo, Math.min(1400, 40 * m.testo.length));
+  // entra da sotto, poi sale per tutta la banda e svanisce: il tempo in aria è
+  // bollaMs, lo stesso che il regista ha impostato per la permanenza
+  G.timeline({ onComplete: via })
+    .fromTo(el, { y: 60, opacity: 0, filter: "blur(6px)" },
+                { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "power3.out" })
+    .to(el, { y: "-34vh", duration: bollaMs / 1000, ease: "none" })
+    .to(el, { opacity: 0, duration: 1.2, ease: "power2.in" }, "-=1.6");
 }
 
 // ==========================================================================
 // SYNC — con serializzazione dell'interludio
 // ==========================================================================
-let lastIndex = -1, lastFired = 0, transitioning = false, latest = null;
+let lastIndex = -1, transitioning = false, latest = null;
 
 socket.on("main:participant", ({ cid, action, connected }) => {
   if (action === "join") ensure(cid); else particles.delete(cid);
   $("lobbyCount").textContent = connected;
 });
 socket.on("main:particle", ({ cid, tag }) => { ensure(cid); setOrbit(particles.get(cid), tag); });
-// A live spento facile/difficile arrivano nulli: la sala vede quanti hanno
-// votato, non da che parte (§2.3). I due contatori spariscono del tutto invece
-// di mostrare un segnaposto: due caselle vuote dove prima c'erano i numeri
-// sembrano un guasto, e dal fondo della sala nessuno può chiedere.
+// A live spento i conteggi arrivano nulli: la sala vede quanti hanno votato,
+// non da che parte (§1.5). I numeri spariscono del tutto invece di mostrare un
+// segnaposto: caselle vuote dove prima c'erano i numeri sembrano un guasto, e
+// dal fondo della sala nessuno può chiedere.
 function showTally(t, pulse) {
-  const nascosti = t.facile == null;
-  const set = (id, v) => {
-    const el = $(id).querySelector(".n");
-    el.classList.toggle("hidden", nascosti);
-    if (nascosti) return;
-    el.textContent = v;
-    if (pulse && G && !REDUCED) G.fromTo(el, { scale: 1.25 }, { scale: 1, duration: 0.35, ease: "back.out(2)" });
-  };
-  set("poleFacile", t.facile); set("poleDifficile", t.difficile);
+  const conteggi = t.conteggi || {};
+  for (const el of document.querySelectorAll("#poles .pole")) {
+    const n = el.querySelector(".n"), v = conteggi[el.dataset.tag];
+    n.classList.toggle("hidden", v == null);
+    if (v == null || n.textContent === String(v)) continue;
+    n.textContent = v;
+    if (pulse && G && !REDUCED) G.fromTo(n, { scale: 1.25 }, { scale: 1, duration: 0.35, ease: "back.out(2)" });
+  }
   $("voteCount").innerHTML = t.live ? ""
     : `<b>${t.total}</b> hanno votato <span class="pill">i numeri si vedono a voto chiuso</span>`;
 }
@@ -427,34 +386,24 @@ socket.on("main:tally", (t) => showTally(t, true));
 function startTransition(s, reveal) {
   transitioning = true;
   if (G && !REDUCED) G.set("#col", { opacity: 0 });
-  const from = daysBetween(s.startDate, s.prevDate), to = daysBetween(s.startDate, s.chapter.data);
-  playInterstitial(from, to, s.chapter.data, s.startDate, s.endDate).then(() => { transitioning = false; reveal(latest); });
+  playInterstitial(s.chapter.occhiello, s.chapter.titolo).then(() => { transitioning = false; reveal(latest); });
 }
 
 socket.on("main:sync", (s) => {
   latest = s;
   reconcile(s.participants || []);
   const inGame = s.phase === "narrating" || s.phase === "voting" || s.phase === "revealing";
+  bollaMs = s.chatBollaMs || bollaMs;
+  document.body.classList.toggle("conchat", !!s.chatAttiva && s.phase === "voting");
   $("lobby").classList.toggle("hidden", s.phase !== "lobby");
   $("game").classList.toggle("hidden", !inGame);
   $("ended").classList.toggle("hidden", s.phase !== "ended");
   $("lobbyCount").textContent = s.connected;
   if (s.phase === "lobby") {
     bodyIndex = -1; lastIndex = -1; titleShown = false;   // reset: la lobby non mostra nulla, la prossima wheel "nasce"
-    // NESSUN interludio in lobby: l'animazione dei giorni parte al 1° capitolo (lobby → inizio, 0 → N giorni).
-    if (G && !REDUCED) G.set(["#iReadout", "#iBg", "#iTimeline"], { opacity: 0, clearProps: "transform" });
+    // NESSUN interludio in lobby: la wheel nasce sul primo esempio.
+    if (G && !REDUCED) G.set(["#iReadout", "#iBg"], { opacity: 0, clearProps: "transform" });
     else $("iReadout").style.opacity = 0;
-  }
-
-  // pannello di stato (sotto l'overlay): sempre aggiornato
-  if (inGame) {
-    $("delegaFill").style.width = (s.indice ?? 50) + "%";
-    $("worldName").textContent = s.indice == null ? "—" : `Delega ${s.indice}`;
-    $("worldSub").textContent = s.banda ? `banda ${s.banda}` : "";
-    $("progress").textContent = `Capitolo ${s.chapter.n} di 14`;
-    $("firedList").innerHTML = esitiHTML(s.esiti);
-    if (s.esiti.length > lastFired && G && !REDUCED) G.from("#firedList .fired", { opacity: 0, x: 20, stagger: 0.1, duration: 0.5, ease: "power2.out" });
-    lastFired = s.esiti.length;
   }
 
   const newChapter = inGame && s.index !== lastIndex;

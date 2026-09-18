@@ -1,178 +1,289 @@
 // Self-check della sessione: una serata intera con tre partecipanti.
 // `node server/session.test.js`
-// Serve a intercettare le viste che esplodono — a fine serata `chapter` è null
-// — e a verificare il doppio binario sala/individuo e la rivelazione.
+// Copre quello che in sala si rompe in silenzio: vittoria con N opzioni,
+// regola del pareggio, salto libero, timer, riapertura, viste che esplodono.
 import assert from "node:assert";
-import { Session } from "./session.js";
-import { CHAPTERS, VOTABILI, INTRECCI, FALLBACK } from "./engine.js";
-import { leggi, pulisciVecchi, fallback } from "./epilogo.js";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { Session, VOTABILI, opzioni, CHAT } from "./session.js";
+import { ESEMPI } from "./content.js";
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 // io finto: le viste vengono calcolate davvero, gli emit finiscono nel vuoto
 const io = { to: () => ({ emit: () => {} }) };
 const socket = (id) => ({ id, data: {}, join() {} });
+// il tag n-esimo dell'esempio corrente, senza sapere come si chiama
+const tagN = (ch, i) => ch.opzioni[i].tag;
 
-// i capitoli che chiudono un intreccio: solo lì c'è un esito da annunciare
-const CHIUDONO = INTRECCI.filter(i => i.nodo_chiusura != null).map(i => i.nodo_chiusura);
-// i capitoli che ne aprono uno: lì va la mezza figura
-const APRONO = INTRECCI.map(i => i.nodo_apertura);
+// ---- forma del contenuto -------------------------------------------------
+const visti = new Set();
+for (const e of ESEMPI) {
+  assert.ok(e.id && !visti.has(e.id), `id mancante o duplicato: ${e.id}`);
+  visti.add(e.id);
+  assert.ok(e.titolo, `${e.id}: serve un titolo`);
+  // senza beats il proiettore legge la domanda: una slide muta non esiste
+  assert.ok((e.beats && e.beats.length) || e.q, `${e.id}: serve beats o una domanda`);
+  if (!e.votabile) continue;
+  assert.ok(e.q, `${e.id}: un esempio votabile ha una domanda`);
+  assert.ok(e.opzioni.length >= 2 && e.opzioni.length <= 4, `${e.id}: da 2 a 4 opzioni`);
+  const tags = new Set(e.opzioni.map(o => o.tag));
+  assert.equal(tags.size, e.opzioni.length, `${e.id}: tag duplicati`);
+  for (const o of e.opzioni)
+    assert.ok(o.label, `${e.id}/${o.tag}: serve una label`);
+}
+assert.ok(VOTABILI.length, "serve almeno un esempio votabile");
+assert.equal(opzioni(ESEMPI.find(e => !e.votabile)), null, "un esempio non votabile non ha opzioni");
 
+// ---- una serata intera ---------------------------------------------------
 const s = new Session(io);
 const [a, b, c] = ["sa", "sb", "sc"].map(id => s.addParticipant(null, socket(id)));
 assert.equal(s.connectedCount(), 3);
 
 s.start();
 assert.equal(s.phase, "narrating");
-assert.equal(s.chapter.n, 1);
+assert.equal(s.chapter.id, ESEMPI[0].id);
 
-// a e b votano comodo, c vota sempre difficile: c finisce sempre in minoranza
-for (const ch of VOTABILI) {
-  assert.equal(s.chapter.n, ch.n, `atteso capitolo ${ch.n}`);
-  s.openVote();
-  assert.equal(s.phase, "voting");
-  assert.ok(s.mainView().options, "il bivio aperto deve avere le opzioni");
-  s.vote(a, "facile"); s.vote(b, "facile"); s.vote(c, "difficile");
-  s.vote(c, "facile"); s.vote(c, "difficile");     // cambio idea: vale l'ultimo
-  assert.deepEqual(s.tally(), { facile: 2, difficile: 1, total: 3, connected: 3 });
-  s.closeVote();
+// a e b votano la prima opzione, c l'ultima: c finisce sempre in minoranza
+for (const e of ESEMPI) {
+  assert.equal(s.chapter.id, e.id, `atteso esempio ${e.id}`);
+  if (e.votabile) {
+    s.openVote();
+    assert.equal(s.phase, "voting");
+    const opts = s.mainView().options;
+    assert.ok(opts && opts.opts.length === e.opzioni.length, "il voto aperto porta tutte le opzioni");
 
-  // il voto chiude sul capitolo, non lo supera: l'esito va mostrato lì (§4.3)
-  assert.equal(s.phase, "revealing", `cap. ${ch.n}: dopo la chiusura si rivela`);
-  assert.equal(s.chapter.n, ch.n, `cap. ${ch.n}: la rivelazione resta sul capitolo`);
-  const r = s.mainView().reveal;
-  assert.equal(r.winner, "facile");
-  assert.equal(r.facile, 2);
-  assert.equal(r.difficile, 1, "la forbice finale si vede sempre alla rivelazione");
-  assert.ok(r.label && r.costo, "serve la scelta vinta e il suo costo nascosto");
-  if (CHIUDONO.includes(ch.n)) assert.ok(r.esito, `cap. ${ch.n} chiude un intreccio: serve l'esito`);
-  else assert.equal(r.esito, null, `cap. ${ch.n} non chiude niente: nessun esito`);
+    const primo = tagN(e, 0), ultimo = tagN(e, e.opzioni.length - 1);
+    s.vote(a, primo); s.vote(b, primo); s.vote(c, ultimo);
+    s.vote(c, primo); s.vote(c, ultimo);          // cambio idea: vale l'ultimo
+    s.vote(a, "inesistente");                      // tag non dell'esempio: ignorato
+    const t = s.tally();
+    assert.equal(t.conteggi[primo], 2);
+    assert.equal(t.conteggi[ultimo], 1);
+    assert.equal(t.total, 3);
+    assert.equal(Object.keys(t.conteggi).length, e.opzioni.length, "gli zeri restano in tabella");
 
-  // mezza figura sui capitoli che aprono, e mai insieme a un esito
-  const attesoParziale = !CHIUDONO.includes(ch.n) && APRONO.includes(ch.n);
-  assert.equal(r.parziale, attesoParziale, `cap. ${ch.n}: mezza figura sbagliata`);
-  assert.ok(!(r.esito && r.parziale), `cap. ${ch.n}: esito e mezza figura insieme`);
-  // la mezza figura non deve portare NIENTE da cui dedurre il segno
-  if (r.parziale) assert.deepEqual(Object.keys(r).filter(k => /id|asse|stato|nome|testo/.test(k)), [],
-    `cap. ${ch.n}: la mezza figura sta mandando dati che rivelano l'intreccio`);
-
+    s.closeVote();
+    assert.equal(s.phase, "revealing", `${e.id}: dopo la chiusura si rivela`);
+    assert.equal(s.chapter.id, e.id, `${e.id}: la rivelazione resta sull'esempio`);
+    const r = s.mainView().reveal;
+    assert.equal(r.winner, primo);
+    assert.deepEqual(r.conteggi, t.conteggi, "la forbice completa si vede sempre alla rivelazione");
+    assert.ok(r.label, "serve l'opzione vinta");
+    const vinta = e.opzioni.find(o => o.tag === primo);
+    assert.equal(r.costo, vinta.costo_nascosto ?? null, "il costo nascosto c'è solo se scritto");
+    assert.equal(r.chiusura, e.chiusura || null);
+  } else {
+    s.openVote();
+    assert.equal(s.phase, "narrating", `${e.id}: non votabile, nessun voto si apre`);
+    assert.equal(s.mainView().options, null);
+  }
   s.skip();
 }
-// ogni capitolo da 1 a 11 dice qualcosa; solo il 12 non apre né chiude
-for (let n = 1; n <= 11; n++)
-  assert.ok(CHIUDONO.includes(n) || APRONO.includes(n), `cap. ${n} non ha niente da mostrare`);
-assert.ok(!CHIUDONO.includes(12) && !APRONO.includes(12), "il capitolo 12 non apre né chiude");
-// il capitolo 2 vota I6 e non deve rivelare niente lì
-assert.ok(!CHIUDONO.includes(2), "I6 non si rivela al capitolo 2");
-
-// dopo i 12 bivi si narra il 13, che non si vota
-assert.equal(s.chapter.n, 13);
-assert.equal(s.phase, "narrating");
-s.openVote();
-assert.equal(s.phase, "narrating", "il capitolo 13 non apre nessun voto");
-
-const v13 = s.mainView();
-assert.equal(v13.indice, 67, "2 facili su 3 per dodici capitoli = 67%");
-assert.equal(v13.banda, "alto");
-assert.equal(v13.reveal, null, "fuori dalla rivelazione non c'è nulla da annunciare");
-assert.ok(v13.chapter.ruolo === "climax" && v13.climax.nome, "il 13 legge l'Indice");
-assert.equal(v13.esiti.length, 5, "al 13 sono visibili i cinque intrecci a due nodi, non I6");
-assert.ok(!v13.esiti.some(e => e.id === "I6"), "I6 resta nascosto fino al 14");
-
-assert.equal(v13.scenario, null, "al 13 lo scenario non si compone ancora");
-
-s.skip();
-assert.equal(s.chapter.n, 14);
-const v14 = s.mainView();
-assert.equal(v14.esiti.length, 6, "il 14 compone tutto, incluso I6");
-// lo scenario globale vive nel capitolo che compone, non dopo (§7)
-assert.ok(v14.scenario, "il capitolo 14 ha lo scenario globale");
-assert.equal(v14.scenario.flatMap(g => g.esiti).length, 6);
-assert.ok(v14.climax.esito, "il climax porta il suo segno, per chiudere la schermata");
-
-s.skip();
 assert.equal(s.phase, "ended");
 const fine = s.mainView();
-assert.equal(fine.chapter, null, "a serata finita non c'è un capitolo corrente");
-assert.ok(fine.climax.testo, "la schermata finale legge il climax dal dato");
-assert.equal(fine.esiti.length, 6);
-assert.equal(fine.aggregates.length, 12);
-// lo scenario resta consultabile dopo, ed è lo stesso del 14
-assert.deepEqual(fine.scenario, v14.scenario, "la schermata finale non ricompone: tiene la stessa");
+assert.equal(fine.chapter, null, "a serata finita non c'è un esempio corrente");
+assert.equal(fine.aggregates.length, VOTABILI.length);
+assert.deepEqual(fine.tally.conteggi, {}, "nessun esempio corrente, nessun conteggio");
 
-// ---- doppio binario -------------------------------------------------------
+// ---- finale personale ----------------------------------------------------
 const pa = s.personalView(a), pc = s.personalView(c);
-assert.equal(pa.voti_espressi, 12);
-assert.equal(pa.indice_personale, 100, "a ha sempre votato comodo");
+assert.equal(pa.voti_espressi, VOTABILI.length);
 assert.equal(pa.voti_in_minoranza, 0);
-assert.equal(pc.indice_personale, 0, "c ha sempre votato difficile");
-assert.equal(pc.voti_in_minoranza, 12, "c ha perso tutte e dodici le volte");
-assert.equal(pc.scelte.length, 12);
-assert.equal(s.consensusCount().same + s.consensusCount().diverge, 3);
+assert.equal(pc.voti_in_minoranza, VOTABILI.length, "c ha perso tutte le volte");
+assert.equal(pc.scelte.length, VOTABILI.length);
+assert.ok(pc.scelte.every(x => x.scelta), "ogni scelta porta con sé la risposta, non il tag");
+assert.ok(pc.scelte.every(x => x.vinse && x.vinse !== s.history.find(h => h.id === x.id).winner),
+  "il telefono legge la risposta vinta, non il tag");
 
-// ---- chi entra a metà serata (Patch §5) ----------------------------------
+// ---- vittoria con N opzioni e pareggio -----------------------------------
+const multi = VOTABILI.find(e => e.opzioni.length > 2);
+assert.ok(multi, "serve un esempio con più di due opzioni per provare gli N");
+
+const sn = new Session(io);
+const votanti = ["v1", "v2", "v3", "v4"].map(id => sn.addParticipant(null, socket(id)));
+sn.start();
+sn.goto(multi.id);
+sn.openVote();
+// 1 sulla prima, 2 sulla terza: vince la terza, non la prima dell'elenco
+sn.vote(votanti[0], tagN(multi, 0));
+sn.vote(votanti[1], tagN(multi, 2));
+sn.vote(votanti[2], tagN(multi, 2));
+sn.closeVote();
+assert.equal(sn.history.at(-1).winner, tagN(multi, 2), "vince il conteggio più alto, non l'ordine");
+
+// pareggio esatto → vince il primo nell'ordine di `opzioni`
+sn.reopenVote();
+sn.vote(votanti[0], tagN(multi, 1));
+sn.vote(votanti[1], tagN(multi, 2));
+sn.closeVote();
+assert.equal(sn.history.at(-1).winner, tagN(multi, 1), "a parità vince il primo nell'ordine");
+
+// zero voti: la serata non si blocca, vince la prima opzione
+sn.reopenVote();
+sn.closeVote();
+assert.equal(sn.history.at(-1).winner, tagN(multi, 0), "zero voti → prima opzione, e si va avanti");
+assert.equal(sn.history.at(-1).conteggi[tagN(multi, 0)], 0, "vincere con zero resta zero in tabella");
+
+// il regista forza comunque
+sn.reopenVote();
+sn.vote(votanti[0], tagN(multi, 0));
+sn.closeVote(tagN(multi, 2));
+assert.equal(sn.history.at(-1).winner, tagN(multi, 2), "l'esito forzato batte i conteggi");
+assert.equal(sn.history.length, 1, "una riga per esempio, non cinque");
+
+// ---- salto libero (§1.4) -------------------------------------------------
+const sg = new Session(io);
+sg.addParticipant(null, socket("s1"));
+sg.start();
+const ultimoId = ESEMPI.at(-1).id;
+sg.goto(ultimoId);
+assert.equal(sg.chapter.id, ultimoId, "si salta avanti");
+assert.equal(sg.phase, "narrating");
+sg.goto(ESEMPI[0].id);
+assert.equal(sg.chapter.id, ESEMPI[0].id, "e anche indietro");
+sg.goto("mai-esistito");
+assert.equal(sg.chapter.id, ESEMPI[0].id, "un id sconosciuto non muove niente");
+
+sg.openVote();
+sg.goto(ultimoId);
+assert.equal(sg.phase, "voting", "a voto aperto il salto si rifiuta");
+assert.equal(sg.chapter.id, ESEMPI[0].id);
+sg.closeVote();
+sg.goto(ultimoId);
+assert.equal(sg.chapter.id, ultimoId, "chiuso il voto, si salta");
+assert.equal(sg.history.length, 1, "saltare non cancella i voti già dati");
+const elenco = sg.directorView().esempi;
+assert.equal(elenco.length, ESEMPI.length);
+assert.equal(elenco[0].stato, "votato");
+assert.equal(elenco[0].winner, sg.history[0].winner, "il cruscotto dice cosa ha vinto");
+assert.ok(sg.history[0].winnerLabel, "e la riga porta anche la label leggibile");
+assert.equal(elenco.at(-1).stato, "in corso");
+
+// ---- chi entra a metà serata ---------------------------------------------
 const s2 = new Session(io);
 const early = s2.addParticipant(null, socket("s1"));
-s2.start();
 let tardi = null;
-for (const ch of VOTABILI) {
+s2.start();
+for (const e of VOTABILI) {
+  s2.goto(e.id);
   s2.openVote();
-  if (ch.n === 6) tardi = s2.addParticipant(null, socket("s2"));   // entra al capitolo 6
-  s2.vote(early, "facile");
-  if (tardi) s2.vote(tardi, "difficile");
+  if (e.id === VOTABILI.at(-1).id) tardi = s2.addParticipant(null, socket("s2"));
+  s2.vote(early, tagN(e, 0));
+  if (tardi) s2.vote(tardi, tagN(e, 1));
   s2.closeVote();
-  s2.skip();
 }
 const pt = s2.personalView(tardi);
-assert.equal(pt.scelte.length, 12, "i capitoli già chiusi restano in elenco");
-assert.equal(pt.scelte.filter(x => x.voto === null).length, 5, "i primi cinque non li ha votati");
-assert.equal(pt.voti_espressi, 7);
-assert.equal(pt.indice_personale, 0);
+assert.equal(pt.scelte.length, VOTABILI.length, "gli esempi già chiusi restano in elenco");
+assert.equal(pt.voti_espressi, 1);
+assert.equal(pt.scelte.filter(x => x.voto === null).length, VOTABILI.length - 1);
 
 // ---- riapri voto: con lo stato derivato è un pop di history --------------
 const s3 = new Session(io);
 const solo = s3.addParticipant(null, socket("s1"));
 s3.start();
-s3.openVote(); s3.vote(solo, "facile"); s3.closeVote();
+const e0 = VOTABILI[0];
+s3.goto(e0.id);
+s3.openVote(); s3.vote(solo, tagN(e0, 1)); s3.closeVote();
 assert.equal(s3.phase, "revealing");
-assert.equal(s3.world.indice, 100);
-
-// riapertura dalla rivelazione: stesso capitolo
 s3.reopenVote();
-assert.equal(s3.chapter.n, 1, "si torna al capitolo appena chiuso");
+assert.equal(s3.chapter.id, e0.id, "si torna all'esempio appena chiuso");
 assert.equal(s3.phase, "voting");
-assert.equal(s3.world.indice, null, "l'esito è stato annullato, non compensato");
-s3.vote(solo, "difficile"); s3.closeVote();
-assert.equal(s3.world.indice, 0, "il nuovo esito sostituisce il vecchio");
-assert.equal(s3.history.length, 1, "una riga per capitolo, non due");
+assert.equal(s3.history.length, 0, "l'esito è stato annullato, non compensato");
+assert.equal(s3.participants.get(solo).votes.size, 0, "e anche il voto personale");
+s3.vote(solo, tagN(e0, 0)); s3.closeVote();
+assert.equal(s3.history.at(-1).winner, tagN(e0, 0), "il nuovo esito sostituisce il vecchio");
 
-// riapertura quando il regista è già andato avanti: torna indietro di uno
-s3.skip();
-assert.equal(s3.chapter.n, 2);
-s3.reopenVote();
-assert.equal(s3.chapter.n, 1, "riapre anche dopo essere avanzato");
-assert.equal(s3.phase, "voting");
-assert.equal(s3.history.length, 0);
+// ---- forbice live: il gate di mostra_live --------------------------------
+const s6 = new Session(io);
+const occhi = s6.addParticipant(null, socket("s1"));
+s6.start();
+for (const e of VOTABILI) {
+  s6.goto(e.id);
+  s6.openVote();
+  const primo = tagN(e, 0);
+  s6.vote(occhi, primo);
+  const sala = s6.mainView().tally, regia = s6.directorView().tally;
+  assert.equal(regia.conteggi[primo], 1, `${e.id}: la regia vede sempre la forbice vera`);
+  if (e.mostra_live) {
+    assert.equal(sala.conteggi[primo], 1, `${e.id}: live acceso, la sala vede i numeri`);
+    assert.equal(sala.live, true);
+  } else {
+    assert.equal(sala.conteggi[primo], null, `${e.id}: live spento, la sala NON vede da che parte`);
+    assert.equal(sala.total, 1, "ma sa quanti hanno votato");
+    assert.equal(sala.live, false);
+  }
+  s6.closeVote();
+  assert.equal(s6.mainView().reveal.conteggi[primo], 1, `${e.id}: la forbice finale si vede comunque`);
+}
 
-// ---- capitolo a zero voti: la serata non si blocca ----------------------
-const s4 = new Session(io);
-s4.addParticipant(null, socket("s1"));
-s4.start();
-s4.openVote(); s4.closeVote();
-assert.equal(s4.history[0].winner, "facile", "zero voti → facile, e si va avanti");
-assert.deepEqual([s4.mainView().reveal.facile, s4.mainView().reveal.difficile], [0, 0]);
-s4.skip();
-assert.equal(s4.chapter.n, 2);
-assert.equal(s4.world.indice, null, "un capitolo senza voti non produce una quota");
+// ---- timer: il voto si chiude da sé -------------------------------------
+const s7 = new Session(io);
+const tizio = s7.addParticipant(null, socket("s1"));
+s7.start();
+// durata reale = 60s: non aspettabile in un test. La si abbassa sull'esempio.
+const primoVotabile = VOTABILI[0], durataVera = primoVotabile.durata_voto_sec;
+primoVotabile.durata_voto_sec = 0.2;
+s7.goto(primoVotabile.id);
+s7.openVote();
+assert.ok(s7.voteEndsAt, "il timer è armato");
+const v = s7.mainView();
+assert.ok(v.voteRestaMs > 0 && v.voteRestaMs <= 200, "la vista dice i ms residui, non un istante assoluto");
+assert.equal(v.voteDurata, 0.2);
+s7.vote(tizio, tagN(primoVotabile, 1));
+await sleep(320);
+assert.equal(s7.phase, "revealing", "scaduto il tempo, il voto si è chiuso da sé");
+assert.equal(s7.history[0].winner, tagN(primoVotabile, 1), "il voto arrivato prima dello scadere conta");
+assert.equal(s7.voteEndsAt, null, "chiuso il voto, il timer è spento");
+assert.equal(s7.mainView().voteRestaMs, null);
 
-// ogni capitolo, in ogni fase, produce viste che non esplodono
+// un timer vecchio non deve chiudere il voto successivo
+primoVotabile.durata_voto_sec = durataVera;
+s7.skip();
+if (VOTABILI.length > 1) {
+  s7.goto(VOTABILI[1].id);
+  s7.openVote();                     // durata piena
+  await sleep(320);
+  assert.equal(s7.phase, "voting", "nessun timer scaduto ha toccato il voto successivo");
+}
+
+// riaprire un voto non riarma il timer: da lì decide il regista
+const s8 = new Session(io);
+s8.addParticipant(null, socket("s1"));
+s8.start();
+s8.goto(VOTABILI[0].id);
+s8.openVote(); s8.closeVote();
+s8.reopenVote();
+assert.equal(s8.voteEndsAt, null, "riaperto a mano: nessuna chiusura automatica a sorpresa");
+
+// durata 0 = chiude solo il regista
+const s9 = new Session(io);
+s9.addParticipant(null, socket("s1"));
+s9.start();
+const d0 = VOTABILI[0].durata_voto_sec;
+VOTABILI[0].durata_voto_sec = 0;
+s9.goto(VOTABILI[0].id);
+s9.openVote();
+assert.equal(s9.voteEndsAt, null, "durata 0 = nessun timer");
+assert.equal(s9.phase, "voting");
+VOTABILI[0].durata_voto_sec = d0;
+
+// ---- accoglienza: resta solo il nome ------------------------------------
+const sa = new Session(io);
+const ada = sa.addParticipant(null, socket("s1"), { nome: "  Ada  " });
+const anonimo = sa.addParticipant(null, socket("s2"));
+const bruto = sa.addParticipant(null, socket("s3"), { nome: "x".repeat(60) });
+assert.equal(sa.participants.get(ada).nome, "Ada", "il nome si ripulisce agli estremi");
+assert.equal(sa.participants.get(anonimo).nome, null);
+assert.equal(sa.participants.get(bruto).nome.length, 30, "il nome è tagliato a 30 caratteri");
+assert.equal(sa.directorView().conNome, 2);
+// reconnect: stesso cid, il nome e i voti restano
+sa.addParticipant(ada, socket("s1-bis"));
+assert.equal(sa.participants.get(ada).nome, "Ada", "chi rientra non perde il nome");
+
+// ---- ogni esempio, in ogni fase, produce viste che non esplodono ---------
 const s5 = new Session(io);
 s5.addParticipant(null, socket("s1"));
 s5.start();
-for (let i = 0; i < CHAPTERS.length; i++) {
+for (let i = 0; i < ESEMPI.length; i++) {
   s5.mainView(); s5.directorView(); s5.deviceViewGeneric();
   if (s5.chapter.votabile) { s5.openVote(); s5.mainView(); s5.closeVote(); s5.mainView(); s5.directorView(); }
   s5.skip();
@@ -180,200 +291,96 @@ for (let i = 0; i < CHAPTERS.length; i++) {
 assert.equal(s5.phase, "ended");
 s5.mainView(); s5.directorView();
 
-// ---- vista regia: cosa serve a chi guida dal palco (§9) ------------------
-const sd = new Session(io);
-sd.addParticipant(null, socket("s1"));
-assert.equal(sd.directorView().puoRiaprire, false, "in lobby non c'è niente da riaprire");
-sd.start();
-for (const ch of VOTABILI) {
-  const d = sd.directorView();
-  assert.equal(d.chapter.n, ch.n);
-  // apre o chiude: mai tutti e due, e per i capitoli 1-11 sempre uno
-  assert.ok(!(d.apre && d.chiude), `cap. ${ch.n}: non può aprire e chiudere insieme`);
-  if (ch.n <= 11) assert.ok(d.apre || d.chiude, `cap. ${ch.n}: dovrebbe piantare o raccogliere`);
-  else assert.ok(!d.apre && !d.chiude, "il capitolo 12 non apre né chiude");
-  if (d.chiude) assert.ok(d.chiude.id && d.chiude.asse, "serve id e asse per annunciarlo");
-  // il prossimo capitolo, per il ritmo
-  assert.equal(d.prossimo.n, ch.n + 1);
-  assert.equal(d.prossimo.votabile, ch.n + 1 <= 12);
-  sd.openVote(); sd.closeVote();
-  assert.equal(sd.directorView().puoRiaprire, true, "chiuso un voto, si può riaprire");
-  sd.skip();
-}
-// il 12 mostra la variante da leggere, il 13 il verdetto, il 14 né l'uno né l'altro
-const d13 = sd.directorView();
-assert.equal(d13.chapter.n, 13);
-assert.equal(d13.chapter.ruolo, "climax");
-assert.ok(d13.climax.testo, "il 13 ha un verdetto da leggere");
-assert.equal(d13.prossimo.n, 14);
-assert.equal(d13.prossimo.votabile, false);
-sd.skip();
-assert.equal(sd.directorView().prossimo, null, "dopo il 14 non c'è nessun capitolo");
-sd.skip();
-assert.equal(sd.phase, "ended");
-assert.equal(sd.directorView().chapter, null, "a fine serata la regia non esplode");
+// ---- chat: la validazione è a un confine di fiducia (§2.3) ---------------
+// io che REGISTRA: senza, "il messaggio è arrivato sul proiettore" non è
+// verificabile, ed è l'unica cosa che conta di tutto il blocco.
+const emessi = [];
+const ioSpia = { to: (room) => ({ emit: (ev, payload) => emessi.push({ room, ev, payload }) }) };
+const sc = new Session(ioSpia);
+const cAda = sc.addParticipant(null, socket("c1"), { nome: "Ada" });
+const cBruno = sc.addParticipant(null, socket("c2"), { nome: "Bruno" });
+const cMuto = sc.addParticipant(null, socket("c3"), { nome: "Muto" });
+const cSenza = sc.addParticipant(null, socket("c4"));
 
-// la variante del capitolo 12 dipende da I5 ed è quella che il narratore legge
-const sv = new Session(io);
-const lettore = sv.addParticipant(null, socket("s1"));
-sv.start();
-for (const ch of VOTABILI) {
-  sv.openVote();
-  sv.vote(lettore, ch.n === 7 ? "facile" : "difficile");   // I5 apre al 7, chiude all'11
-  sv.closeVote();
-  if (ch.n === 12) {
-    const d = sv.directorView();
-    assert.equal(d.intrecci.I5, "TERZA_VIA_PENTIMENTO");
-    assert.ok(d.chapter.oracolo, "il 12 dà alla regia il testo da leggere");
-    assert.ok(/spina dorsale/i.test(d.chapter.oracolo), "e dev'essere la variante giusta di I5");
-  }
-  sv.skip();
-}
+assert.equal(sc.chat(cAda, "ciao").motivo, "chiuso", "fuori dal voto non si scrive");
+sc.start();
+sc.goto(VOTABILI[0].id);
+assert.equal(sc.chat(cAda, "ciao").motivo, "chiuso", "nemmeno mentre si legge l'esempio");
+sc.openVote();
 
-// ---- forbice live: il gate di mostra_live (§2.3) -------------------------
-const s6 = new Session(io);
-const occhi = s6.addParticipant(null, socket("s1"));
-s6.start();
-for (const ch of VOTABILI) {
-  s6.openVote();
-  s6.vote(occhi, "facile");
-  const sala = s6.mainView().tally, regia = s6.directorView().tally;
-  assert.equal(regia.facile, 1, `cap. ${ch.n}: la regia vede sempre la forbice vera`);
-  if (ch.mostra_live) {
-    assert.equal(sala.facile, 1, `cap. ${ch.n}: live acceso, la sala vede i numeri`);
-    assert.equal(sala.live, true);
-  } else {
-    assert.equal(sala.facile, null, `cap. ${ch.n}: live spento, la sala NON vede da che parte`);
-    assert.equal(sala.difficile, null);
-    assert.equal(sala.total, 1, "ma sa quanti hanno votato");
-    assert.equal(sala.live, false);
-  }
-  s6.closeVote();
-  // alla chiusura la forbice si rivela comunque, anche dove era nascosta
-  const r = s6.mainView().reveal;
-  assert.equal(r.facile, 1, `cap. ${ch.n}: la forbice finale si vede sempre`);
-  s6.skip();
-}
-// tre capitoli col live acceso, come indicato dalla trama
-assert.equal(VOTABILI.filter(c => c.mostra_live).length, 3, "live acceso su deepfake, social credit e filtri AR");
+assert.equal(sc.chat(cAda, "   ").motivo, "vuoto");
+assert.equal(sc.chat(cSenza, "eccomi").motivo, "senza nome", "nessun anonimo a schermo");
+assert.equal(sc.chat("mai-visto", "eccomi").motivo, "chiuso", "un cid sconosciuto non scrive");
 
-// ---- timer: il voto si chiude da sé (§5, e §9 se il cruscotto cade) -----
-const s7 = new Session(io);
-const tizio = s7.addParticipant(null, socket("s1"));
-s7.start();
-// durata reale = 60s: non aspettabile in un test. La si abbassa sul capitolo.
-const cap1 = CHAPTERS[0], durataVera = cap1.durata_voto_sec;
-cap1.durata_voto_sec = 0.2;
-s7.openVote();
-assert.ok(s7.voteEndsAt, "il timer è armato");
-const v = s7.mainView();
-assert.ok(v.voteRestaMs > 0 && v.voteRestaMs <= 200, "la vista dice i ms residui, non un istante assoluto");
-assert.equal(v.voteDurata, 0.2);
-s7.vote(tizio, "difficile");
-await sleep(320);
-assert.equal(s7.phase, "revealing", "scaduto il tempo, il voto si è chiuso da sé");
-assert.equal(s7.history[0].winner, "difficile", "il voto arrivato prima dello scadere conta");
-assert.equal(s7.voteEndsAt, null, "chiuso il voto, il timer è spento");
-assert.equal(s7.mainView().voteRestaMs, null);
+const primo = sc.chat(cAda, "  Il margine dove finisce?  ");
+assert.equal(primo.ok, true);
+assert.equal(sc.coda.length, 1);
+assert.equal(sc.coda[0].testo, "Il margine dove finisce?", "il testo si ripulisce agli estremi");
+assert.equal(sc.coda[0].nome, "Ada", "il messaggio è firmato dall'accoglienza");
 
-// un timer vecchio non deve chiudere il bivio successivo
-s7.skip();
-s7.openVote();                      // capitolo 2, durata piena
-assert.equal(s7.chapter.n, 2);
-await sleep(320);
-assert.equal(s7.phase, "voting", "il capitolo 2 è ancora aperto: nessun timer scaduto lo ha toccato");
-cap1.durata_voto_sec = durataVera;   // ripristino: i dati sono condivisi tra i test
+assert.equal(sc.chat(cAda, "e subito un altro").motivo, "aspetta", "cooldown tra due messaggi");
+sc.ultimoMsg.set(cAda, 0);                       // il cooldown è passato
+assert.equal(sc.chat(cAda, "secondo").ok, true);
+sc.ultimoMsg.set(cAda, 0);
+assert.equal(sc.chat(cAda, "terzo").motivo, "aspetta", `max ${CHAT.maxInCoda} in coda per partecipante`);
 
-// riaprire un voto non riarma il timer: da lì decide il regista
-const s8 = new Session(io);
-s8.addParticipant(null, socket("s1"));
-s8.start();
-s8.openVote(); s8.closeVote();
-s8.reopenVote();
-assert.equal(s8.phase, "voting");
-assert.equal(s8.voteEndsAt, null, "riaperto a mano: nessuna chiusura automatica a sorpresa");
+const lungo = sc.chat(cBruno, "x".repeat(500));
+assert.equal(lungo.ok, true, "un messaggio lungo si tronca, non si rifiuta");
+assert.equal(sc.coda.find(m => m.id === lungo.id).testo.length, CHAT.maxChars);
 
-// un capitolo con durata 0 non arma nessun timer
-const s9 = new Session(io);
-s9.addParticipant(null, socket("s1"));
-s9.start();
-const d0 = CHAPTERS[0].durata_voto_sec;
-CHAPTERS[0].durata_voto_sec = 0;
-s9.openVote();
-assert.equal(s9.voteEndsAt, null, "durata 0 = chiude solo il regista");
-assert.equal(s9.phase, "voting");
-CHAPTERS[0].durata_voto_sec = d0;
+// silenziato: non scrive più, e quello che aveva in coda sparisce
+sc.ultimoMsg.set(cMuto, 0);
+const suo = sc.chat(cMuto, "sempre io");
+assert.equal(suo.ok, true);
+sc.chatMute(cMuto);
+assert.equal(sc.coda.some(m => m.cid === cMuto), false, "silenziare svuota anche la sua coda");
+sc.ultimoMsg.set(cMuto, 0);
+assert.equal(sc.chat(cMuto, "e invece").motivo, "silenziato");
+assert.deepEqual(emessi.filter(v => v.ev === "device:chatState" && v.payload.id === suo.id).map(v => v.payload.stato),
+  ["rifiutato"], "e il mittente lo viene a sapere");
 
-// ---- epilogo individuale (Patch §8) -------------------------------------
-// Senza OPENROUTER_API_KEY tutti prendono il fallback: è esattamente la voce
-// di collaudo «timeout della generazione AI → fallback consegnato».
-process.env.EPILOGHI_DIR = await mkdtemp(path.join(tmpdir(), "epiloghi-"));
+// approvazione: è l'unica strada verso il proiettore
+const primaDi = emessi.filter(v => v.ev === "main:chat").length;
+sc.chatApprove(primo.id);
+const usciti = emessi.filter(v => v.ev === "main:chat");
+assert.equal(usciti.length, primaDi + 1, "approvare manda il messaggio in sala");
+assert.equal(usciti.at(-1).room, "main");
+assert.deepEqual(usciti.at(-1).payload, { id: primo.id, nome: "Ada", testo: "Il margine dove finisce?" });
+assert.equal(sc.coda.some(m => m.id === primo.id), false, "e lo toglie dalla coda");
+assert.equal(emessi.filter(v => v.ev === "device:chatState" && v.payload.id === primo.id).at(-1).payload.stato, "pubblicato");
 
-const se = new Session(io);
-const ada = se.addParticipant(null, socket("s1"), { nome: "Ada", data_nascita: "2008-04-20" });
-const senzaDati = se.addParticipant(null, socket("s2"));
-// nome oltre i 30 caratteri e data impossibile: entrambi vanno filtrati
-const bruto = se.addParticipant(null, socket("s3"), { nome: "x".repeat(60), data_nascita: "2008-02-30" });
+sc.chatApprove(primo.id);
+assert.equal(emessi.filter(v => v.ev === "main:chat").length, usciti.length, "approvare due volte non raddoppia");
+sc.chatApprove("999");
+assert.equal(emessi.filter(v => v.ev === "main:chat").length, usciti.length, "un id inventato non pubblica niente");
 
-assert.equal(se.participants.get(ada).nome, "Ada");
-assert.equal(se.participants.get(ada).eta, "32 anni, 6 mesi, 1 giorno", "l'età si calcola all'ingresso");
-assert.equal(se.participants.get(senzaDati).nome, null, "chi non lascia nulla resta anonimo");
-assert.equal(se.participants.get(bruto).nome.length, 30, "il nome è tagliato a 30 caratteri");
-assert.equal(se.participants.get(bruto).nascita, null, "il 30 febbraio non passa");
-assert.equal(se.directorView().conNome, 2, "due su tre hanno lasciato un nome");
+const daScartare = sc.coda[0].id;
+sc.chatReject(daScartare);
+assert.equal(sc.coda.some(m => m.id === daScartare), false);
+assert.equal(emessi.filter(v => v.ev === "main:chat").length, usciti.length, "scartare non manda niente in sala");
 
-se.start();
-for (const ch of VOTABILI) {
-  se.openVote();
-  se.vote(ada, "difficile"); se.vote(senzaDati, "facile"); se.vote(bruto, "facile");
-  se.closeVote();
-  if (ch.n === 12) {
-    assert.ok(se.generazionePromise, "chiuso il 12, la generazione parte da sola");
-    await se.generazionePromise;
-  } else {
-    assert.equal(se.generazionePromise, undefined, `cap. ${ch.n}: non deve partire niente`);
-  }
-  se.skip();
-}
+sc.chatClear();
+assert.equal(sc.coda.length, 0, "la coda si svuota");
+assert.equal(sc.directorView().chatCoda, 0);
 
-const gen = se.directorView().generazione;
-assert.equal(gen.finita, true);
-assert.equal(gen.totale, 3);
-assert.equal(gen.fatti, 3);
-assert.equal(gen.modello, false, "senza chiave si dichiara che sono tutti fallback");
+// Un cid che il server non conosce più (riavvio, o reset della regia) deve
+// poter rientrare col nome e tornare a scrivere: è il caso che in sala capita
+// col telefono che si era bloccato, e senza questo resta muto per sempre.
+sc.reset(false);
+sc.addParticipant(cAda, socket("c1"), { nome: "Ada" });
+sc.start(); sc.goto(VOTABILI[0].id); sc.openVote();
+assert.equal(sc.chat(cAda, "rieccomi").ok, true, "rientrando col nome si torna a scrivere");
+sc.coda = []; sc.ultimoMsg.clear();
 
-// prima del comando del regista, i telefoni non hanno niente
-assert.equal(se.epiloghiRivelati, false);
-let pAda = se.personalView(ada);
-assert.equal(pAda.epilogo, null, "l'epilogo esiste ma non esce");
-assert.equal(pAda.link, null);
-assert.equal(pAda.inAttesa, true, "il telefono sa che c'è qualcosa in arrivo");
+// chiuso il voto la casella sparisce dal telefono
+assert.equal(sc.deviceViewGeneric().chat, true);
+sc.closeVote();
+assert.equal(sc.deviceViewGeneric().chat, false, "a voto chiuso non si scrive più");
+assert.equal(sc.chat(cBruno, "ancora?").motivo, "chiuso");
 
-se.rivelaEpiloghi();
-pAda = se.personalView(ada);
-assert.ok(pAda.epilogo, "dopo il comando, il testo c'è");
-assert.ok(pAda.epilogo.startsWith("Ada, nel 2040 avrai 32 anni, 6 mesi, 1 giorno."), "nome ed età interpolati");
-assert.ok(!/\{NOME\}|\{ETA\}/.test(pAda.epilogo), "nessun segnaposto rimasto a vista");
-assert.ok(pAda.link && pAda.link.startsWith("/e/"), "e il link per rileggerlo");
+// reset: la serata riparte pulita, muti compresi
+sc.reset(false);
+assert.equal(sc.coda.length, 0);
+assert.equal(sc.muti.size, 0, "il reset ridà la parola a tutti");
 
-// chi non ha lasciato il nome riceve comunque un epilogo leggibile
-const pn = se.personalView(senzaDati);
-assert.ok(pn.epilogo && !/\{NOME\}|\{ETA\}/.test(pn.epilogo), "niente segnaposto nemmeno senza dati");
-assert.ok(pn.epilogo.startsWith("Tu, nel 2040"), "senza nome si ripiega su «Tu»");
-
-// il file salvato si rilegge dal token, ed è quello giusto
-const salvato = await leggi(pAda.link.slice(3));
-assert.equal(salvato.nome, "Ada");
-assert.equal(salvato.testo, pAda.epilogo);
-assert.equal(await leggi("../../etc/passwd"), null, "il token non può uscire dalla cartella");
-assert.equal(await leggi("inesistente"), null);
-
-// il fallback scelto dipende dal mondo della sala, non è sempre lo stesso
-const banda = se.world.banda, esito = se.world.climax.esito;
-assert.equal(fallback({ banda_sala: banda, climax: se.world.climax }), FALLBACK[`${banda}:${esito}`]);
-
-// retention: i file vecchi se ne vanno
-assert.equal(await pulisciVecchi(0), 3, "con retention 0 si cancella tutto");
-assert.equal(await leggi(pAda.link.slice(3)), null, "e il link non risponde più");
-
-console.log("OK — serata, vista regia, rivelazione, mezza figura, forbice mascherata, timer, doppio binario, ingresso a metà, riapertura, zero voti ed epiloghi.");
+console.log("OK — serata, N opzioni, pareggio, salto libero, riapertura, forbice mascherata, timer, accoglienza finale personale e chat moderata.");

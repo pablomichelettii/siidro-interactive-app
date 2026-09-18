@@ -1,0 +1,32 @@
+<!-- Fondo di brand: tracce da circuito stampato + qualche bit, in trasparenza.
+     Tile 320×320: le linee attraversano il tile da bordo a bordo, così si
+     ripetono senza giunte visibili. Colori del brandboard, alfa bassissima:
+     deve leggersi come texture, non come contenuto. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320">
+  <g fill="none" stroke="#4391FF" stroke-opacity="0.13" stroke-width="1.4">
+    <path d="M0 40 H120 l24 24 H320"/>
+    <path d="M0 232 H60 l28 -28 H200 l24 24 H320"/>
+    <path d="M60 0 V96 l28 28 V320"/>
+    <path d="M236 0 V140 l-28 28 V320"/>
+    <path d="M160 320 V196 l36 -36 V0"/>
+  </g>
+  <g fill="none" stroke="#F0EBE1" stroke-opacity="0.05" stroke-width="1.4">
+    <path d="M0 148 H92"/>
+    <path d="M272 0 V72 l-36 36"/>
+    <path d="M320 276 H208 l-24 -24"/>
+  </g>
+  <g fill="#4391FF" fill-opacity="0.16">
+    <circle cx="144" cy="64" r="3.2"/>
+    <circle cx="88" cy="124" r="3.2"/>
+    <circle cx="208" cy="168" r="3.2"/>
+    <circle cx="184" cy="252" r="3.2"/>
+    <circle cx="60" cy="232" r="3.2"/>
+  </g>
+  <g font-family="Menlo, Consolas, monospace" font-size="11" letter-spacing="2"
+     fill="#F0EBE1" fill-opacity="0.045">
+    <text x="12" y="88">01001</text>
+    <text x="196" y="196">10110</text>
+    <text x="104" y="300">0101</text>
+    <text x="248" y="52">1001</text>
+  </g>
+</svg>

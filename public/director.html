@@ -3,74 +3,83 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regia — Il Libro Vivo del 2040</title>
+<title>Regia — SIIDRO ICT Company Summit</title>
 <link rel="stylesheet" href="style.css">
 <style>
   .pad { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: var(--sp-lg) var(--sp-md); }
   .row { display: flex; flex-wrap: wrap; gap: var(--sp-sm); margin: var(--sp-md) 0; }
   .card { border: 1px solid var(--wire); border-radius: 12px; padding: var(--sp-md); margin: var(--sp-sm) 0; }
   .kpi { display: flex; gap: var(--sp-lg); flex-wrap: wrap; }
-  .kpi > div .n { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: var(--ochre); }
+  .kpi > div .n { font-family: var(--font-display); font-weight: 800; font-size: 2rem; color: var(--accent); }
   .kpi > div .l { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-  .tono { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.3em 0; border-bottom: 1px solid var(--wire); }
-  .tono b { color: var(--ochre); }
   .tallybar { display: flex; height: 26px; border: 1px solid var(--wire); border-radius: 6px; overflow: hidden; margin-top: var(--sp-sm); }
-  .tallybar .f { background: var(--terra); } .tallybar .d { background: var(--ochre); }
-  .tallybar span { display: flex; align-items: center; justify-content: center; color: var(--bg-black); font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; transition: width 0.3s; }
-  .phase { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; color: var(--ochre); letter-spacing: 0.1em; }
+  .tallybar span { display: flex; align-items: center; justify-content: center; color: var(--ink); background: var(--c);
+    font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; transition: width 0.3s; overflow: hidden; }
+  .phase { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; color: var(--accent); letter-spacing: 0.1em; }
   /* Se il cruscotto perde il server deve GRIDARLO: numeri fermi che sembrano
-     veri sono peggio di nessun numero (§9). */
+     veri sono peggio di nessun numero. */
   #offline { display: none; position: sticky; top: 0; z-index: 9; margin: 0 0 var(--sp-sm);
-    padding: var(--sp-sm) var(--sp-md); border-radius: 10px; background: var(--terra); color: var(--bg-black);
+    padding: var(--sp-sm) var(--sp-md); border-radius: 10px; background: var(--accent); color: var(--ink);
     font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
   body.giu #offline { display: block; }
   body.giu .kpi, body.giu .tallybar, body.giu #timerTxt { opacity: 0.35; }
-  /* Il testo che il narratore deve leggere ad alta voce, quando c'è. */
-  .daleggere { border-left: 3px solid var(--ochre); padding: 0.4em 0 0.4em 1em; color: #f0dca9; }
   .next { display: flex; justify-content: space-between; gap: var(--sp-md); font-size: 0.9rem; }
+  /* Elenco degli esempi: saltando avanti e indietro, in sala si perde il conto. */
+  .esempio { display: flex; align-items: center; gap: var(--sp-sm); padding: 0.45em 0; border-bottom: 1px solid var(--wire); font-size: 0.9rem; }
+  .esempio .st { font-family: var(--font-display); font-weight: 700; font-size: 0.6rem; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 0.25em 0.6em; border-radius: 999px; border: 1px solid var(--wire); color: var(--muted); white-space: nowrap; }
+  .esempio.corso .st { border-color: var(--accent); color: var(--accent); }
+  .esempio.votato .st { border-color: var(--wire); color: var(--white); }
+  .esempio .tt { flex: 1; }
+  .esempio .vinta { color: var(--muted); font-size: 0.8rem; }
+  .esempio button { font-size: 0.7rem; padding: 0.4em 0.9em; }
+  /* CHAT — chi conduce guarda il tavolo, non lo schermo: i bottoni vanno
+     premuti senza mirare, e quello che si becca per sbaglio dev'essere
+     PUBBLICA, non SCARTA. Per questo Pubblica è largo e Scarta è stretto. */
+  .msg { border: 1px solid var(--wire); border-radius: 12px; padding: var(--sp-sm) var(--sp-md); margin: var(--sp-sm) 0; }
+  .msg .chi { font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; font-size: 0.65rem; color: var(--accent); }
+  .msg .attesa { float: right; font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .msg .testo { margin: 0.35em 0 var(--sp-sm); font-size: 1.05rem; line-height: 1.35; }
+  .msg .azioni { display: flex; gap: var(--sp-sm); align-items: stretch; }
+  .msg .pubblica { flex: 1; min-height: 56px; font-size: 1rem; background: var(--accent); color: var(--ink); border-color: var(--accent); }
+  .msg .scarta, .msg .silenzia { flex: 0 0 auto; min-height: 56px; }
+  .msg .silenzia { border-color: var(--wire); color: var(--muted); }
+  #chatN { color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="pad wrap">
   <div id="offline">⚠ Connessione persa — i numeri qui sotto sono fermi. Prosegui a voce.</div>
   <div class="year">Cruscotto Regia · non proiettare</div>
-  <h2 style="font-size:2rem">Il Libro Vivo del 2040</h2>
+  <h2 style="font-size:2rem">SIIDRO ICT Company Summit</h2>
 
   <div class="card">
     <div>Stato: <span class="phase" id="phase">—</span> · <span id="chLabel" class="muted"></span></div>
-    <div class="muted" id="chNodo" style="font-size:0.8rem;margin-top:0.3em"></div>
+    <!-- lettura della risposta: sta qui e solo qui, non si proietta -->
+    <div id="chNota" class="muted" style="margin-top:0.4em;font-size:0.9rem"></div>
     <div class="row">
       <button class="btn" id="bStart">▶ Inizia</button>
       <button class="btn" id="bOpen">Apri voto</button>
       <button class="btn" id="bClose">Chiudi voto</button>
       <button class="btn ghost" id="bReopen">↺ Riapri voto</button>
-      <button class="btn ghost" id="bTieF">Forza ↘ facile</button>
-      <button class="btn ghost" id="bTieD">Forza ↗ difficile</button>
       <button class="btn" id="bSkip">Avanti ▷</button>
       <button class="btn ghost" id="bReset">Reset</button>
     </div>
-    <div class="row" style="margin-top:0">
-      <button class="btn" id="bEpiloghi">📱 Rivela epiloghi</button>
-    </div>
-    <div class="muted" id="epiTxt" style="font-size:0.8rem"></div>
+    <!-- Forzatura dell'esito: un bottone per opzione, generati dall'esempio in
+         corso. Con quattro opzioni i pareggi non sono più rari, e la regola
+         (vince il primo dell'elenco) non sempre è quella che serve in sala. -->
+    <div class="row" style="margin-top:0" id="forza"></div>
+    <div class="muted" id="forzaTxt" style="font-size:0.8rem"></div>
   </div>
 
   <div class="card kpi">
     <div><div class="n" id="kConn">0</div><div class="l">Collegati</div></div>
-    <div><div class="n" id="kDelega">—</div><div class="l">Indice di Delega</div></div>
-    <div><div class="n" id="kBanda" style="font-size:1.2rem">—</div><div class="l">Banda</div></div>
-    <div><div class="n" id="kClimax" style="font-size:1.2rem">—</div><div class="l">Climax se finisse ora</div></div>
+    <div><div class="n" id="kFatti">0</div><div class="l">Esempi votati</div></div>
+    <div><div class="n" id="kNome">0</div><div class="l">Con un nome</div></div>
   </div>
 
-  <!-- Testo che il narratore deve leggere ad alta voce in QUESTO capitolo:
-       la variante del 12 che dipende da I5, e il verdetto del 13 sull'Indice.
-       Prima stavano solo sul proiettore, cioè dietro le spalle di chi parla. -->
-  <div class="card" id="leggiCard" style="display:none">
-    <div class="year">Da leggere adesso</div>
-    <div id="leggiDir" class="daleggere"></div>
-  </div>
-
-  <!-- Cosa deve dire il narratore adesso. Vuoto se non c'è niente da annunciare. -->
+  <!-- Cosa deve dire chi conduce adesso. Vuoto se non c'è niente da annunciare. -->
   <div class="card" id="revCard" style="display:none">
     <div class="year">Da annunciare</div>
     <div id="revDir"></div>
@@ -83,24 +92,35 @@
 
   <div class="card">
     <div class="year">Voto in corso · <span id="liveFlag"></span></div>
-    <div class="tallybar"><span class="f" id="tbF" style="width:50%">0</span><span class="d" id="tbD" style="width:50%">0</span></div>
+    <div class="tallybar" id="tallybar"></div>
     <div class="muted" id="tallyTxt" style="font-size:0.8rem;margin-top:0.4em"></div>
     <div class="muted" id="timerTxt" style="font-size:0.8rem;margin-top:0.4em"></div>
   </div>
 
-  <!-- La regia vede TUTTI gli esiti, compreso I6 prima del capitolo 14:
-       le serve per sapere cosa annunciare. La sala no. -->
+  <!-- CHAT DA APPROVARE — nessun messaggio arriva sul proiettore se non
+       passa da qui. Il conteggio resta visibile anche quando non c'è nulla. -->
   <div class="card">
-    <div class="year">Intrecci — nomi da annunciare · <span id="conteggio"></span></div>
-    <div id="fired"><span class="muted" style="font-size:0.85rem">Nessuno risolto.</span></div>
+    <div class="year">Chat da approvare · <span id="chatN">0</span> in attesa
+      <button class="btn ghost" id="bChatClear" style="float:right;font-size:0.7rem;padding:0.3em 0.8em">Svuota coda</button>
+    </div>
+    <div id="chatCoda"></div>
+  </div>
+
+  <div class="card">
+    <div class="year">Gli esempi — si può saltare dove serve</div>
+    <div id="lista"></div>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="esc.js"></script>
 <script>
   const socket = io({ query: { role: "director", k: new URLSearchParams(location.search).get("k") || "" } });
   const $ = (id) => document.getElementById(id);
   const emit = (ev, d) => socket.emit(ev, d);
+  // gli stessi quattro colori dei poli sul proiettore: la barra della regia e
+  // lo schermo devono raccontare la stessa cosa
+  const POLI = ["#4391FF", "#F0EBE1", "#2D63B8", "#8E8E8E"];
 
   // Il server rifiuta la regia con "unauthorized". Qualunque altro errore è un
   // problema di rete e il client riprova da solo: cancellare la pagina per un
@@ -122,31 +142,70 @@
     on("bStart",  p === "lobby");
     on("bOpen",   p === "narrating" && !!(s.chapter && s.chapter.votabile));
     on("bClose",  p === "voting");
-    on("bTieF",   p === "voting");
-    on("bTieD",   p === "voting");
     on("bReopen", !!(s && s.puoRiaprire));
     on("bSkip",   p === "narrating" || p === "revealing");
     on("bReset",  true);
-    // si accende solo quando c'è davvero qualcosa da rivelare
-    on("bEpiloghi", !!(s && s.generazione && s.generazione.finita && !s.epiloghiRivelati));
+    document.querySelectorAll("#forza button").forEach(b => b.disabled = !(online && p === "voting"));
+    // a voto aperto saltare è rifiutato dal server: qui si spegne, così non si prova
+    document.querySelectorAll("#lista button").forEach(b => b.disabled = !(online && p !== "voting"));
   }
   abilita();
   $("bStart").onclick = () => emit("director:start");
   $("bOpen").onclick = () => emit("director:openVote");
   $("bClose").onclick = () => emit("director:closeVote");
   $("bReopen").onclick = () => emit("director:reopenVote");
-  $("bTieF").onclick = () => emit("director:closeVote", { option: "facile" });
-  $("bTieD").onclick = () => emit("director:closeVote", { option: "difficile" });
   $("bSkip").onclick = () => emit("director:skip");
   $("bReset").onclick = () => { if (confirm("Azzerare la sessione?")) emit("director:reset"); };
-  // irreversibile per come è messa in scena: novanta schermi si accendono e basta
-  $("bEpiloghi").onclick = () => { if (confirm("Accendere adesso tutti i telefoni?")) emit("director:rivelaEpiloghi"); };
+  $("bChatClear").onclick = () => { if (confirm("Scartare tutti i messaggi in attesa?")) emit("director:chatClear"); };
 
+  // La coda arriva intera a ogni cambiamento: ridisegnarla è più semplice che
+  // tenerla in sincrono a pezzi, ed è piccola per costruzione (tetto a 200).
+  let coda = [];
+  socket.on("director:chatQueue", (q) => { coda = q || []; disegnaCoda(); });
+  function disegnaCoda() {
+    $("chatN").textContent = coda.length;
+    $("chatCoda").innerHTML = coda.length ? coda.map(m => `<div class="msg">
+        <span class="attesa" data-ts="${m.ts}">—</span>
+        <span class="chi">${esc(m.nome)}</span>
+        <div class="testo">${esc(m.testo)}</div>
+        <div class="azioni">
+          <button class="btn pubblica" data-pub="${esc(m.id)}">Pubblica</button>
+          <button class="btn ghost scarta" data-sca="${esc(m.id)}">Scarta</button>
+          <button class="btn ghost silenzia" data-mute="${esc(m.cid)}">Silenzia</button>
+        </div>
+      </div>`).join("")
+      : `<span class="muted" style="font-size:0.85rem">Niente in attesa.</span>`;
+    attesa();
+  }
+  // "da quanto aspetta": un messaggio di tre minuti fa, pubblicato adesso, è
+  // fuori tempo rispetto a quello che si sta dicendo.
+  function attesa() {
+    document.querySelectorAll("#chatCoda .attesa").forEach(el => {
+      const s = Math.round((Date.now() - +el.dataset.ts) / 1000);
+      el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+    });
+  }
+  setInterval(attesa, 1000);
+  $("chatCoda").addEventListener("click", (ev) => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    if (b.dataset.pub) emit("director:chatApprove", { id: b.dataset.pub });
+    else if (b.dataset.sca) emit("director:chatReject", { id: b.dataset.sca });
+    else if (b.dataset.mute && confirm("Silenziare questo partecipante per il resto della serata?"))
+      emit("director:chatMute", { cid: b.dataset.mute });
+  });
+
+  // La barra: un segmento per opzione, nell'ordine dell'esempio. A zero voti
+  // resta grigia e vuota invece di mostrare percentuali inventate.
   function tally(t) {
-    const tot = t.total || 1;
-    $("tbF").style.width = (t.facile / tot * 100) + "%"; $("tbF").textContent = t.facile;
-    $("tbD").style.width = (t.difficile / tot * 100) + "%"; $("tbD").textContent = t.difficile;
-    $("tallyTxt").textContent = `${t.total} voti espressi · ${t.connected} collegati`;
+    const opts = (ultimo && ultimo.options && ultimo.options.opts) || [];
+    const c = t.conteggi || {};
+    const tot = t.total || 0;
+    $("tallybar").innerHTML = opts.map((o, i) =>
+      `<span style="--c:${POLI[i % POLI.length]};width:${tot ? (c[o.tag] || 0) / tot * 100 : 100 / (opts.length || 1)}%">${tot ? (c[o.tag] || 0) : ""}</span>`).join("");
+    $("tallyTxt").textContent = opts.length
+      ? `${tot} voti espressi · ${t.connected} collegati · ` + opts.map(o => `${o.tag}: ${c[o.tag] || 0}`).join(" · ")
+      : `${t.connected} collegati`;
   }
   socket.on("director:tally", tally);
 
@@ -159,62 +218,59 @@
       ? `⏱ ${(resta / 1000).toFixed(0)}s di ${tot}s — si chiude da sé`
       : "⏱ scaduto: chiusura automatica";
   }, 250);
+
   socket.on("director:sync", (s) => {
-    ultimo = s; abilita();
+    ultimo = s;
     $("phase").textContent = s.phase;
     $("chLabel").textContent = s.chapter
-      ? `cap. ${s.chapter.n}/14 · ${s.chapter.anno} — ${s.chapter.titolo}${s.chapter.votabile ? "" : " (non si vota)"}`
+      ? `${s.chapter.occhiello || ""} — ${s.chapter.titolo}${s.chapter.votabile ? "" : " (non si vota)"}`
       : "fine";
-    // pianta o raccoglie? decide il ritmo che il narratore deve tenere
-    $("chNodo").textContent = !s.chapter ? ""
-      : s.chiude ? `chiude ${s.chiude.id} · asse ${s.chiude.asse} — qui c'è un esito da annunciare`
-      : s.apre ? `apre ${s.apre.id} · asse ${s.apre.asse} — pianta e basta, si raccoglie più avanti`
-      : "non apre né chiude nessun intreccio";
-    // il testo da dire ad alta voce, dove ce n'è uno
-    const daLeggere = s.chapter && s.chapter.oracolo ? s.chapter.oracolo
-      : s.chapter && s.chapter.ruolo === "climax" ? `${s.climax.nome} — ${s.climax.testo}`
-      : null;
-    $("leggiCard").style.display = daLeggere ? "" : "none";
-    if (daLeggere) $("leggiDir").textContent = daLeggere;
+    $("chNota").textContent = s.nota || "";
     $("nextLabel").textContent = s.prossimo
-      ? `cap. ${s.prossimo.n} · ${s.prossimo.anno} — ${s.prossimo.titolo}`
-      : "niente: dopo questo la serata è finita";
+      ? `${s.prossimo.occhiello || ""} — ${s.prossimo.titolo}`
+      : "niente: dopo questo si chiude";
     $("nextVota").textContent = s.prossimo ? (s.prossimo.votabile ? "si vota" : "non si vota") : "";
     $("kConn").textContent = s.connected;
-    $("kDelega").textContent = s.indice == null ? "—" : s.indice + "%";
-    $("kBanda").textContent = s.banda || "—";
-    $("kClimax").textContent = s.climax.nome;
+    $("kFatti").textContent = `${(s.esempi || []).filter(e => e.stato === "votato").length}/${(s.esempi || []).filter(e => e.votabile).length}`;
+    $("kNome").textContent = s.conNome;
+    $("chatN").textContent = s.chatCoda;
+    $("bChatClear").disabled = !online || !s.chatCoda;
     // il regista deve sapere se la sala sta vedendo la forbice o no
     $("liveFlag").textContent = s.phase !== "voting" ? "chiuso"
       : s.chapter && s.chapter.mostra_live ? "la sala VEDE la forbice" : "forbice nascosta alla sala";
     fine = s.voteRestaMs ? Date.now() + s.voteRestaMs : null;
     tot = s.voteDurata || 0;
-    // gli epiloghi si generano durante il capitolo 13: qui si vede a che punto è
-    const g = s.generazione;
-    $("epiTxt").textContent = s.epiloghiRivelati ? "Epiloghi rivelati — i telefoni sono accesi."
-      : !g ? `Epiloghi: si generano alla chiusura del capitolo 12. ${s.conNome} hanno lasciato un nome.`
-      : !g.finita ? `Generazione in corso: ${g.fatti}/${g.totale}${g.modello ? "" : " (nessuna chiave: tutti fallback)"}`
-      : `Pronti: ${g.totale} epiloghi. Aspetta la battuta, poi premi.`;
-    const SEGNO = { NEGATIVO: "neg", POSITIVO: "pos", TERZA_VIA_PENTIMENTO: "terza", TERZA_VIA_RESA: "terza" };
+
+    // forzatura: un bottone per opzione dell'esempio in corso
+    const opts = (s.options && s.options.opts) || (s.chapter && s.chapter.votabile && s.reveal ? s.reveal.opts : []) || [];
+    $("forza").innerHTML = opts.map(o =>
+      `<button class="btn ghost" data-tag="${esc(o.tag)}">Forza «${esc(o.tag)}»</button>`).join("");
+    $("forza").querySelectorAll("button").forEach(b =>
+      b.onclick = () => emit("director:closeVote", { option: b.dataset.tag }));
+    $("forzaTxt").textContent = opts.length
+      ? "A parità di voti vince la prima opzione dell'elenco. Da qui si forza qualunque altra."
+      : "";
+
     $("revCard").style.display = s.reveal ? "" : "none";
     if (s.reveal) {
       const r = s.reveal;
-      $("revDir").innerHTML =
-        `<p>Ha vinto <b>${r.winner}</b> · ${r.facile} a ${r.difficile}</p>`
-        + (r.esito
-          ? `<div class="fired ${SEGNO[r.esito.stato]}"><b>${r.esito.id} — ${r.esito.nome}</b> <span class="muted">(${r.esito.stato}, asse ${r.esito.asse})</span><p style="margin:0.5em 0 0">${r.esito.testo}</p></div>`
-          : `<p class="muted" style="font-size:0.85rem">Questo capitolo non chiude nessun intreccio: niente da annunciare, si pianta e si va avanti.</p>`);
+      $("revDir").innerHTML = `<p>Ha vinto <b>${esc(r.label)}</b> <span class="muted">(${esc(r.winner)})</span></p>`
+        + `<p class="muted" style="font-size:0.85rem">${r.opts.map(o => `${esc(o.tag)}: ${r.conteggi[o.tag] ?? 0}`).join(" · ")}</p>`
+        + (r.chiusura ? `<p style="margin:0.6em 0 0">${esc(r.chiusura)}</p>` : "");
     }
-    // la scaletta in una riga: è quello che il narratore dice al capitolo 14
-    const conta = { NEGATIVO: 0, POSITIVO: 0, terza: 0 };
-    s.esitiTutti.forEach(e => conta[/TERZA/.test(e.stato) ? "terza" : e.stato]++);
-    $("conteggio").textContent = s.esitiTutti.length
-      ? `${conta.NEGATIVO} rotti · ${conta.terza} a metà · ${conta.POSITIVO} tenuti`
-      : "";
-    $("fired").innerHTML = s.esitiTutti.length
-      ? s.esitiTutti.map(e => `<div class="fired ${SEGNO[e.stato]}"><b>${e.id}</b> · ${e.nome} <span class="muted">(${e.stato})</span></div>`).join("")
-      : `<span class="muted" style="font-size:0.85rem">Nessuno risolto.</span>`;
+
+    $("lista").innerHTML = (s.esempi || []).map(e =>
+      `<div class="esempio ${e.stato === "in corso" ? "corso" : e.stato === "votato" ? "votato" : ""}">
+        <span class="st">${e.stato}</span>
+        <span class="tt">${esc(e.titolo)}${e.votabile ? "" : " <span class='muted'>(non si vota)</span>"}</span>
+        ${e.winner ? `<span class="vinta">${esc(e.winner)}</span>` : ""}
+        <button class="btn ghost" data-id="${esc(e.id)}">Vai</button>
+      </div>`).join("");
+    $("lista").querySelectorAll("button").forEach(b =>
+      b.onclick = () => emit("director:goto", { id: b.dataset.id }));
+
     tally(s.tally);
+    abilita();
   });
 </script>
 </body>

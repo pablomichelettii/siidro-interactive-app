@@ -1,13 +1,12 @@
 {
-  "name": "libro-vivo-2040",
+  "name": "siidro-interactive-app",
   "version": "0.1.0",
   "type": "module",
-  "description": "Il Libro Vivo del 2040 \u2014 MVP multiplayer real-time (SIIDRO 2026)",
+  "description": "SIIDRO ICT Company Summit \u2014 app interattiva del tavolo: esempi votati dalla sala e chat moderata",
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
-    "test": "node server/engine.test.js && node server/session.test.js",
-    "loadtest": "node --env-file-if-exists=.env loadtest/loadtest.mjs",
-    "epiloghi": "node --env-file-if-exists=.env tools/prova-epiloghi.mjs"
+    "test": "node server/session.test.js",
+    "loadtest": "node --env-file-if-exists=.env loadtest/loadtest.mjs"
   },
   "dependencies": {
     "@fastify/static": "^7.0.4",

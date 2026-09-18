@@ -1,4 +1,4 @@
-// SMARTPHONE — accoglienza, voto, epilogo.
+// SMARTPHONE — accoglienza (solo il nome), voto, riepilogo finale.
 // Il cid sta in localStorage, non in sessionStorage: una scheda chiusa o un
 // telefono riavviato a metà serata ritrovano la stessa sessione, con i voti
 // già dati (Patch §5, "sessione persa / telefono scarico").
@@ -38,6 +38,9 @@ function render(view) {
   document.body.classList.toggle("fine", fine);
   const ended = fine;
 
+  show("chatBox", voting && view.chat);
+  if (!voting) $("chatStato").textContent = "";
+  if (voting && view.chat) $("chatTesto").maxLength = view.chatMaxChars || 140;
   if (voting) {
     $("q").textContent = view.options.q;
     // opzioni NON etichettate facile/difficile (la comoda deve sembrare ragionevole)
@@ -52,38 +55,21 @@ function render(view) {
 
   if (ended && view.ended) {
     const e = view.ended;
-    const SEGNO = { NEGATIVO: "neg", POSITIVO: "pos", TERZA_VIA_PENTIMENTO: "terza", TERZA_VIA_RESA: "terza" };
-    // il testo generato, quando il regista lo ha rivelato
-    $("epilogo").textContent = e.epilogo || "";
-    show("epilogo", !!e.epilogo);
-    const link = $("epilogoLink");
-    link.href = e.link || "#";
-    link.style.display = e.link ? "" : "none";
-    show("epilogoLink", !!e.link);
-    // Due righe di dodici frecce: la tua e quella della sala, incolonnate.
-    // Le caselle dove sei andato per conto tuo sono le uniche evidenziate.
-    const esc = (t) => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    const freccia = (v) => v === "facile" ? "↘" : v === "difficile" ? "↗" : "·";
-    const cella = (v, s, diverso) =>
-      `<i class="${v || "saltato"}${diverso ? " diverso" : ""}" title="${esc(s.anno)} · ${esc(s.titolo)}">${freccia(v)}</i>`;
+    // Una riga per esempio: la tua risposta accanto a quella del tavolo, e il
+    // bordo acceso dove sei andato per conto tuo.
+    $("scelte").innerHTML = e.scelte.map(s => `<div class="riga${s.minoranza ? " diverso" : ""}">
+      <div class="tit">${esc(s.titolo)}</div>
+      <div class="coppia">
+        <span class="tu"><b>Tu</b>${s.voto ? esc(s.scelta) : "non hai votato"}</span>
+        <span class="sala"><b>Il tavolo</b>${esc(s.vinse)}</span>
+      </div>
+    </div>`).join("");
 
-    $("scelte").innerHTML =
-      `<span class="et">TU</span>` + e.scelte.map(s => cella(s.voto, s, s.minoranza)).join("")
-      + `<span class="et">SALA</span>` + e.scelte.map(s => cella(s.vinse, s, s.minoranza)).join("");
-
-    // ↘ comoda · ↗ faticosa, e il dato più forte che ha addosso
-    $("sceltePie").innerHTML =
-      `<span class="muted">↘ strada comoda · ↗ strada faticosa · · non votato</span><br>`
-      + (e.voti_espressi === 0
-        ? "Non hai votato nessun capitolo: questo mondo ti è capitato addosso."
-        : e.voti_in_minoranza
-          ? `<b>${e.voti_in_minoranza}</b> volte hai scelto diverso dalla sala — e ha vinto lei.`
-          : "Hai sempre scelto come la sala.");
-
-    $("youClimax").textContent = e.climax.nome;
-    $("youVerdict").textContent = e.climax.testo;
-    $("youFired").innerHTML = e.esiti.map(x =>
-      `<div class="fired ${SEGNO[x.stato]}"><span class="nome">${x.nome}</span>${x.testo}</div>`).join("");
+    $("sceltePie").textContent = e.voti_espressi === 0
+      ? "Non hai votato niente: quello che vedi è solo il tavolo."
+      : e.voti_in_minoranza
+        ? `${e.voti_in_minoranza} volte su ${e.voti_espressi} hai risposto diverso dal tavolo.`
+        : "Hai risposto sempre come il tavolo.";
   }
 }
 
@@ -97,6 +83,40 @@ document.addEventListener("click", (ev) => {
   socket.emit("device:vote", { option: myVote });
 });
 
+// ---- chat ----------------------------------------------------------------
+// Tre stati, perché il mittente deve sapere che fine ha fatto il suo messaggio:
+// senza, lo riscrive, e la coda del regista raddoppia da sola.
+const MOTIVI = {
+  chiuso: "Il voto è chiuso: adesso non si scrive.",
+  chiusa: "La chat è spenta per questa serata.",
+  silenziato: "La regia ha silenziato questo telefono.",
+  vuoto: "Scrivi qualcosa prima di mandare.",
+  aspetta: "Aspetta qualche secondo: ne hai già uno in coda.",
+  "coda piena": "Troppi messaggi in attesa. Riprova tra poco.",
+  "senza nome": "Serve un nome per firmare: ricarica la pagina."
+};
+function stato(txt, ok) {
+  $("chatStato").textContent = txt;
+  $("chatStato").className = ok ? "ok" : "no";
+}
+$("chatTesto").addEventListener("input", () => {
+  const max = $("chatTesto").maxLength || 140;
+  $("chatResta").textContent = max - $("chatTesto").value.length;
+});
+$("chatBox").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const testo = $("chatTesto").value.trim();
+  if (!testo) return;
+  socket.emit("device:chat", { testo }, (r) => {
+    if (r && r.ok) { $("chatTesto").value = ""; $("chatResta").textContent = $("chatTesto").maxLength || 140; }
+    stato(r && r.ok ? "In attesa che la regia lo pubblichi." : (MOTIVI[r && r.motivo] || "Non è partito. Riprova."), !!(r && r.ok));
+  });
+});
+socket.on("device:chatState", ({ stato: st }) => {
+  if (st === "pubblicato") stato("È sullo schermo.", true);
+  else if (st === "rifiutato") stato("La regia non lo ha pubblicato.", false);
+});
+
 // ---- accoglienza ---------------------------------------------------------
 function entra(dati) {
   socket.emit("device:join", { cid, ...dati }, (res) => {
@@ -107,22 +127,24 @@ function entra(dati) {
 
 document.getElementById("onboarding").addEventListener("submit", (ev) => {
   ev.preventDefault();
-  const nome = $("fNome").value.trim(), nascita = $("fNascita").value;
-  if (!nome || !nascita) return;
-  // una data futura o assurda qui è quasi sempre un dito scivolato sul picker
-  if (new Date(nascita) > new Date()) {
-    $("fErr").textContent = "Quella data è nel futuro — controlla l'anno.";
-    return show("fErr", true);
-  }
+  const nome = $("fNome").value.trim();
+  if (!nome) return;
   show("fErr", false);
   localStorage.setItem("nome", nome);
-  entra({ nome, data_nascita: nascita });
+  entra({ nome });
 });
 
-socket.on("connect", () => {
-  // chi ha già un cid rientra dritto: il server ha ancora nome ed età
-  if (cid) return entra(null);
-  show("onboarding", true);
+// Il nome si rimanda SEMPRE al rientro, non solo la prima volta: lo stato del
+// server vive in memoria e muore col processo (e col reset della regia), quindi
+// un cid vecchio può benissimo non esistere più dall'altra parte. Senza nome
+// riemesso, quel telefono resta muto in chat e non ha modo di rimediare.
+function rientra() {
+  const nome = localStorage.getItem("nome");
+  if (cid && nome) return entra({ nome });
+  show("onboarding", true);          // niente nome salvato: si ripassa dall'accoglienza
   show("wait", false);
-});
+}
+socket.on("connect", rientra);
+// il regista ha azzerato la serata: i partecipanti non esistono più, si rientra
+socket.on("device:rientra", rientra);
 socket.on("device:sync", render);

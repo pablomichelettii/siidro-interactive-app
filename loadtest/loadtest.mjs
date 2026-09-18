@@ -19,30 +19,25 @@ const N = parseInt(process.argv[2] || "50", 10);
 const URL = process.env.URL || "http://localhost:3000";
 const TOKEN = process.env.DIRECTOR_TOKEN || "";
 // COME VOTA LA SALA FINTA.
-// Con una probabilità fissa per client (era 0.6) la legge dei grandi numeri
-// schiaccia tutto: a 90 votanti un capitolo gira su "difficile" nel 2% dei
-// casi, quindi la serata finiva SEMPRE con gli stessi sei esiti negativi e il
-// test non ha mai messo piede sui rami positivi o sulle terze vie.
-// Ora l'umore della sala si estrae UNA VOLTA PER CAPITOLO: le maggioranze
-// girano davvero e ogni run produce un mondo diverso.
-// Con SCENARIO si forza la serata: 12 lettere f/d, una per capitolo.
-//   SCENARIO=ffffffffffff  → tutto comodo      SCENARIO=dddddddddddd → tutto difficile
-//   SCENARIO=fdfdfdfdfdfd  → sala alternata    SCENARIO=ffffffdddddd → si pente a metà
-const SCENARIO = (process.env.SCENARIO || "").toLowerCase();
-if (SCENARIO && !/^[fd]{12}$/.test(SCENARIO)) {
-  console.error(`✗ SCENARIO deve essere 12 lettere f/d (ricevuto: "${SCENARIO}")`);
+// L'opzione preferita si estrae UNA VOLTA PER ESEMPIO, non per client: con una
+// probabilità fissa a novanta votanti la legge dei grandi numeri schiaccia
+// tutto e vince sempre la stessa, e il test non mette mai piede sugli altri
+// rami (pareggi, opzioni a zero voti, vittorie di misura).
+// Con SCENARIO si forza la serata: una cifra per esempio votabile = indice
+// dell'opzione che deve vincere (0 = la prima dell'elenco).
+//   SCENARIO=00000  → tutti sulla prima      SCENARIO=01230 → uno per opzione
+// Gli esempi hanno da 2 a 4 opzioni: un indice fuori portata si arrotonda giù.
+const SCENARIO = (process.env.SCENARIO || "");
+if (SCENARIO && !/^[0-9]+$/.test(SCENARIO)) {
+  console.error(`✗ SCENARIO deve essere cifre, una per esempio votabile (ricevuto: "${SCENARIO}")`);
   process.exit(1);
 }
 const CONCORDI = 0.85;                // quota che segue lo scenario forzato
-// Due livelli, non uno. Con il solo umore per capitolo i valori si mediano
-// sui dodici bivi e l'Indice finisce sempre vicino al 50%: gli intrecci
-// variavano ma il climax usciva quasi sempre uguale. La disposizione si
-// estrae una volta per RUN, l'umore oscilla attorno a quella.
-const DISPOSIZIONE = 0.28 + Math.random() * 0.44;   // sala timida ↔ sala coraggiosa
-const clamp01 = (v) => Math.max(0.05, Math.min(0.95, v));
-const umoreCapitolo = (n) => SCENARIO
-  ? (SCENARIO[n - 1] === "f" ? CONCORDI : 1 - CONCORDI)
-  : clamp01(DISPOSIZIONE + (Math.random() - 0.5) * 0.7);
+// L'umore è un indice di opzione preferita, estratto PRIMA di ogni voto: senza,
+// con novanta client a probabilità fissa la legge dei grandi numeri schiaccia
+// tutto e vince sempre la stessa opzione.
+let preferita = 0;
+const umoreEsempio = (n) => SCENARIO ? +(SCENARIO[n - 1] ?? 0) : null;
 const PACE = parseFloat(process.argv[3] || process.env.PACE || "0");   // secondi per fase
 const READ_MS = Number(process.env.READ_MS ?? PACE * 1000);  // sosta sul capitolo prima del voto
 const VOTE_MS = Number(process.env.VOTE_MS ?? PACE * 1000);  // durata finestra di voto
@@ -93,12 +88,12 @@ await waitSync(() => !!dsync, "il primo stato dalla regia");
 // Node non ricarica i moduli: un server lasciato acceso da ieri risponde
 // benissimo e parla un protocollo vecchio. Meglio accorgersene qui che dopo
 // dieci minuti di timeout su una fase che quel server non conosce.
-const RICHIESTI = ["bivi", "climax", "esitiTutti", "reveal", "voteRestaMs", "puoRiaprire", "scenario"];
+const RICHIESTI = ["bivi", "esempi", "reveal", "voteRestaMs", "puoRiaprire", "options"];
 const mancanti = RICHIESTI.filter((k) => dsync[k] === undefined);
 if (mancanti.length) {
   console.error(`✗ Il server risponde ma parla un protocollo diverso: mancano ${mancanti.join(", ")}.`);
   console.error(`  È rimasto su una versione vecchia del codice. Riavvialo:`);
-  console.error(`    locale → ferma npm start e rilancialo · deploy → pm2 restart next5000days\n`);
+  console.error(`    locale → ferma npm start e rilancialo · deploy → pm2 restart siidro\n`);
   process.exit(1);
 }
 
@@ -106,13 +101,17 @@ if (dsync.phase !== "lobby") { director.emit("director:reset"); await waitSync((
 
 // ---- partecipanti --------------------------------------------------------
 let roundVotes = 0;
-let umore = 0.5;                      // ridefinito a ogni capitolo, prima di aprire il voto
+                                      // `preferita` si ridefinisce a ogni esempio, prima di aprire il voto
 const devs = Array.from({ length: N }, () => ({ s: io(URL, { ...opt, query: { role: "device" } }), voted: false }));
 devs.forEach((d) => {
   d.s.on("device:sync", (v) => {
     if (v.phase === "voting" && v.options && !d.voted) {
       d.voted = true;
-      const tag = Math.random() < umore ? "facile" : "difficile";
+      // segue la preferita, o sceglie a caso: la dispersione è quello che in
+      // sala fa migrare le particelle invece di teletrasportarle tutte insieme
+      const opts = v.options.opts;
+      const i = Math.random() < CONCORDI ? Math.min(preferita, opts.length - 1) : Math.floor(Math.random() * opts.length);
+      const tag = opts[i].tag;
       // con ritmo>0 i voti si spalmano sulla finestra → particelle che migrano a poco a poco
       const delay = VOTE_MS > 0 ? Math.random() * VOTE_MS * 0.7 : 0;
       setTimeout(() => d.s.emit("device:vote", { option: tag }, () => { roundVotes++; }), delay);
@@ -128,9 +127,8 @@ console.log(`connessi: ${connected}/${N}  in ${(now() - tConn0) | 0}ms`);
 let joined = 0;
 await Promise.all(devs.map((d, i) => new Promise((res) => {
   if (!d.s.connected) return res();
-  // accoglienza come in sala: nome e data di nascita di studenti plausibili
-  const nascita = `${2006 + (i % 3)}-${String(1 + (i % 12)).padStart(2, "0")}-${String(1 + (i % 28)).padStart(2, "0")}`;
-  d.s.emit("device:join", { cid: null, nome: `Studente ${i + 1}`, data_nascita: nascita }, (r) => {
+  // accoglienza come in sala: resta solo il nome
+  d.s.emit("device:join", { cid: null, nome: `Partecipante ${i + 1}` }, (r) => {
     d.cid = r && r.cid; joined++; res();
   });
 })));
@@ -143,14 +141,13 @@ await waitSync((s) => s.phase === "narrating", "l'inizio della serata");
 const rounds = dsync.bivi;
 let ended = false;
 
-console.log(SCENARIO
-  ? `scenario forzato: ${SCENARIO}\n`
-  : `sala estratta a caso: disposizione ${(DISPOSIZIONE * 100) | 0}% verso la strada comoda\n`);
+console.log(SCENARIO ? `scenario forzato: ${SCENARIO}\n` : `sala a caso: la preferita cambia a ogni esempio\n`);
 
 for (let r = 0; r < rounds && !ended; r++) {
   roundVotes = 0;
   devs.forEach((d) => (d.voted = false));
-  umore = umoreCapitolo(r + 1);         // PRIMA di aprire: i device leggono questo
+  // PRIMA di aprire: i device leggono questo
+  preferita = umoreEsempio(r + 1) ?? Math.floor(Math.random() * 4);
 
   await sleep(READ_MS);                 // sosta sul capitolo (leggibile a schermo)
 
@@ -168,21 +165,17 @@ for (let r = 0; r < rounds && !ended; r++) {
   p = waitSync((s) => s.phase === "revealing", `la rivelazione del capitolo ${r + 1}`);
   director.emit("director:closeVote");
   const s = await p;
-  const esito = s.reveal && s.reveal.esito;
 
   await sleep(READ_MS);                 // il narratore annuncia l'esito
   p = waitSync((x) => x.phase === "ended" || x.index > idx, `il passaggio oltre il capitolo ${r + 1}`);
   director.emit("director:skip");
   ended = (await p).phase === "ended";
 
-  console.log(`bivio ${String(r + 1).padStart(2)}/${rounds} · voti ${String(roundVotes).padStart(3)}/${connected} in ${String(voteMs).padStart(4)}ms`
-    + ` · ha vinto ${s.reveal.winner.padEnd(9)} (${s.reveal.facile}-${s.reveal.difficile})`
-    + ` · indice ${String(s.indice).padStart(3)}%`
-    + (esito ? ` · ↯ ${esito.id} ${esito.nome}` : ""));
+  console.log(`esempio ${String(r + 1).padStart(2)}/${rounds} · voti ${String(roundVotes).padStart(3)}/${connected} in ${String(voteMs).padStart(4)}ms`
+    + ` · ha vinto ${s.reveal.winner.padEnd(12)} (${s.reveal.opts.map(o => s.reveal.conteggi[o.tag] ?? 0).join("-")})`);
 }
 
-// dopo i 12 bivi restano il climax (13) e la chiusura (14): non si votano,
-// li avanza il regista
+// gli esempi che non si votano li avanza il regista
 while (!ended) {
   await sleep(READ_MS);
   const idx = dsync.index;
@@ -190,33 +183,16 @@ while (!ended) {
   director.emit("director:skip");
   const s = await p;
   ended = s.phase === "ended";
-  console.log(`capitolo ${idx + 1} narrato (nessun voto)`);
-}
-
-// ---- epiloghi: la generazione parte alla chiusura del 12 -----------------
-let epiloghiVisti = 0;
-devs.forEach((d) => d.s.on("device:sync", (v) => { if (v.ended && v.ended.epilogo) epiloghiVisti++; }));
-
-const gen = await waitSync((s) => s.generazione && s.generazione.finita, "la generazione degli epiloghi", 180000)
-  .catch(() => null);
-if (gen) {
-  console.log(`\nepiloghi pronti: ${gen.generazione.fatti}/${gen.generazione.totale}`
-    + (gen.generazione.modello ? " (dal modello)" : " (fallback: nessuna chiave)"));
-  const t = now();
-  director.emit("director:rivelaEpiloghi");
-  await waitUntil(() => epiloghiVisti >= connected, 8000);
-  console.log(`rivela_epiloghi: ${epiloghiVisti}/${connected} schermi accesi in ${(now() - t) | 0}ms`);
+  console.log(`esempio ${idx + 1} letto (nessun voto)`);
 }
 
 // ---- esito ---------------------------------------------------------------
 const fin = ended ? dsync : await waitSync((s) => s.phase === "ended", "la fine della serata", 4000).catch(() => dsync);
 console.log(`\n── esito ──`);
 console.log(`durata partita:   ${((now() - t0) / 1000).toFixed(1)}s`);
-console.log(`indice di delega: ${fin.indice}% (banda ${fin.banda})`);
-console.log(`climax:           ${fin.climax.nome}`);
 console.log(`connessi al voto: ${fin.connected}`);
-if (fin.consensus) console.log(`consenso:         ${fin.consensus.same} in linea · ${fin.consensus.diverge} divergenti`);
-console.log(`intrecci risolti: ${fin.esiti.map((e) => `${e.id} ${e.nome}`).join(" | ") || "nessuno"}`);
+console.log(`esempi votati:    ${(fin.aggregates || []).length}`);
+for (const a of fin.aggregates || []) console.log(`  ${a.titolo} → ${a.winnerLabel}`);
 
 const ok = connected === N && joined === connected && fin.phase === "ended";
 console.log(ok ? "\n✓ OK — tutte le connessioni hanno retto il flusso completo.\n"

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Il Libro Vivo del 2040</title>
+<title>SIIDRO ICT Company Summit</title>
 <link rel="stylesheet" href="style.css">
 <style>
   body { display: flex; }
@@ -13,62 +13,65 @@
      parte dall'alto. */
   body.fine .screen { justify-content: flex-start; }
   .wait { text-align: center; }
-  .wait .display { font-size: 1.6rem; color: var(--ochre); margin-bottom: var(--sp-sm); }
-  .vote-opt { width: 100%; text-align: left; font-family: var(--font-serif); text-transform: none; letter-spacing: 0; font-size: 1.1rem; padding: var(--sp-md); line-height: 1.4; }
-  .vote-opt.picked { background: var(--ochre); color: var(--bg-black); }
+  .wait .display { font-size: 1.6rem; color: var(--accent); margin-bottom: var(--sp-sm); }
+  .vote-opt { width: 100%; text-align: left; font-family: var(--font-text); text-transform: none; letter-spacing: 0; font-size: 1.1rem; padding: var(--sp-md); line-height: 1.4; }
+  .vote-opt.picked { background: var(--accent); color: var(--ink); }
   #timerNote { text-align: center; }
   /* quanto resta per cambiare idea: una barra, senza cifre che mettano fretta */
   .votebar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: var(--sp-md); }
-  .votebar > i { display: block; height: 100%; width: 100%; background: var(--ochre);
+  .votebar > i { display: block; height: 100%; width: 100%; background: var(--accent);
     transform-origin: left center; transition: transform 0.2s linear; }
+  /* CHAT — compare con le opzioni e sparisce alla chiusura del voto. */
+  #chatBox { margin-top: var(--sp-md); padding-top: var(--sp-md); border-top: 1px solid var(--wire); }
+  #chatTesto { width: 100%; padding: var(--sp-sm); font-family: var(--font-text); font-size: 1rem;
+    color: var(--white); background: rgba(0,0,0,0.25); border: 1px solid var(--wire); border-radius: 10px;
+    resize: none; line-height: 1.4; }
+  #chatTesto:focus { outline: none; border-color: var(--accent); }
+  #chatRiga { display: flex; align-items: center; gap: var(--sp-sm); margin-top: var(--sp-sm); }
+  #chatInvia { flex: 1; }
+  #chatResta { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #chatStato { margin-top: var(--sp-sm); font-size: 0.85rem; text-align: center; }
+  #chatStato.ok { color: var(--accent); }
+  #chatStato.no { color: var(--white); }
+
   /* accoglienza */
   .campo { display: block; margin: var(--sp-md) 0; font-size: 0.9rem; color: var(--muted); }
   .campo input { display: block; width: 100%; margin-top: 0.5em; padding: var(--sp-sm);
-    font-family: var(--font-serif); font-size: 1.1rem; color: var(--white);
+    font-family: var(--font-text); font-size: 1.1rem; color: var(--white);
     background: rgba(0,0,0,0.25); border: 1px solid var(--wire); border-radius: 10px; }
-  .campo input:focus { outline: none; border-color: var(--ochre); }
+  .campo input:focus { outline: none; border-color: var(--accent); }
   .campo small { display: block; margin-top: 0.4em; font-size: 0.8rem; }
   #bEntra { width: 100%; margin-top: var(--sp-sm); }
   /* l'epilogo: è la cosa che leggono, deve respirare */
   .epilogo { white-space: pre-wrap; font-size: 1.15rem; line-height: 1.7; margin: var(--sp-md) 0; }
   /* sezioni sotto l'epilogo, separate come i blocchi di un capitolo */
   .sez { margin-top: var(--sp-xl); padding-top: var(--sp-md); border-top: 1px solid var(--wire); }
-  .climaxNome { font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
-    font-size: 1.25rem; line-height: 1.15; margin: 0.5em 0 0.6em; }
-  /* Specchietto delle scelte: due righe di dodici frecce, tu sopra e la sala
-     sotto. Dodici righe di testo erano più lunghe dell'epilogo e se lo
-     mangiavano; così la differenza con la sala si legge in un colpo d'occhio. */
-  .griglia { display: grid; grid-template-columns: auto repeat(12, 1fr);
-    gap: 0.15em 0; align-items: center; margin-top: var(--sp-sm); }
-  .griglia .et { font-family: var(--font-display); font-weight: 700; font-size: 0.6rem;
-    letter-spacing: 0.14em; color: var(--muted); padding-right: 0.6em; }
-  .griglia i { font-style: normal; font-family: var(--font-display); font-weight: 800;
-    font-size: 1.05rem; text-align: center; line-height: 1.5; border-radius: 5px; }
-  .griglia i.facile { color: var(--terra); }
-  .griglia i.difficile { color: var(--ochre); }
-  .griglia i.saltato { color: var(--wire); }
-  /* dove è andato per conto suo: l'unica cosa evidenziata */
-  .griglia i.diverso { background: rgba(255,255,255,0.14); outline: 1px solid var(--white); }
+  /* Riepilogo: una riga per esempio — la tua risposta e quella del tavolo.
+     Con opzioni libere le frecce non dicono più niente: serve l'etichetta. */
+  .riga { border-top: 1px solid var(--wire); padding: 0.7em 0; }
+  .riga .tit { font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 0.7rem; color: var(--muted); }
+  .riga .coppia { display: flex; gap: 0.6em; margin-top: 0.25em; font-size: 0.95rem; }
+  .riga .coppia b { font-family: var(--font-display); font-weight: 700; font-size: 0.6rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: block; }
+  .riga .tu { color: var(--white); flex: 1; }
+  .riga .sala { color: var(--accent); flex: 1; }
+  .riga.diverso { border-left: 2px solid var(--accent); padding-left: 0.7em; }
   #sceltePie { margin-top: var(--sp-md); font-size: 0.9rem; }
 </style>
 </head>
 <body>
 <div class="screen wrap">
-  <!-- ACCOGLIENZA (Patch §8.1) — nome o nickname, e data di nascita per l'età
-       esatta nel 2040. Il picker nativo invece di un campo libero: meno errori,
-       e la tastiera giusta su ogni telefono. -->
+  <!-- ACCOGLIENZA (§1.7) — un campo solo: il nome firma i messaggi in chat. -->
   <form id="onboarding" class="hidden">
     <div class="year">Prima di cominciare</div>
     <h2 style="font-size:1.5rem">Chi sei?</h2>
     <label class="campo">Come ti chiamiamo
-      <input id="fNome" type="text" maxlength="30" autocomplete="given-name"
-             placeholder="Nome o nickname" required>
+      <input id="fNome" type="text" maxlength="30" autocomplete="name"
+             placeholder="Nome e cognome, o solo nome" required>
+      <small class="muted">Firma quello che scrivi in chat. Niente altro ti viene chiesto.</small>
     </label>
-    <label class="campo">Quando sei nato o nata
-      <input id="fNascita" type="date" required>
-      <small class="muted">Serve per dirti che età esatta avrai nel 2040.</small>
-    </label>
-    <button class="btn" id="bEntra" type="submit">Entra nel libro</button>
+    <button class="btn" id="bEntra" type="submit">Entra</button>
     <p id="fErr" class="muted hidden" style="text-align:center"></p>
   </form>
 
@@ -85,34 +88,32 @@
     <div id="opts"></div>
     <div class="votebar"><i id="voteFill"></i></div>
     <p id="voteNote" class="muted hidden" style="text-align:center">Voto registrato. Puoi ancora cambiare idea.</p>
+
+    <!-- Scrivere è possibile solo mentre il voto è aperto. Il messaggio non va
+         a schermo da solo: lo pubblica la regia, o non ci va. -->
+    <form id="chatBox" class="hidden">
+      <div class="year">Dì la tua al tavolo</div>
+      <textarea id="chatTesto" rows="2" maxlength="140" placeholder="Una riga, e va sullo schermo se la regia la pubblica"></textarea>
+      <div id="chatRiga">
+        <button class="btn" id="chatInvia" type="submit">Manda</button>
+        <span id="chatResta">140</span>
+      </div>
+      <p id="chatStato" class="muted"></p>
+    </form>
   </div>
 
   <!-- EPILOGO — impaginato come un capitolo, in verticale:
        il testo, poi lo specchietto delle sue scelte, poi il mondo della sala. -->
   <div id="endBox" class="hidden">
-    <div class="year">2040 · Lo Specchio</div>
-    <h2 style="font-size:1.6rem">Il tuo 2040</h2>
-    <p id="epilogo" class="epilogo hidden"></p>
-    <a id="epilogoLink" class="btn hidden" style="display:none">Tieni questo link</a>
-
-    <!-- specchietto: cosa ha scelto lui, capitolo per capitolo -->
-    <section class="sez">
-      <div class="year">Le tue scelte, e quelle della sala</div>
-      <div class="griglia" id="scelte"></div>
-      <p class="muted" id="sceltePie"></p>
-    </section>
-
-    <!-- il mondo della sala, come già era -->
-    <section class="sez">
-      <div class="year">Il mondo che avete costruito</div>
-      <p class="climaxNome" id="youClimax"></p>
-      <p id="youVerdict"></p>
-      <div id="youFired" style="margin-top:var(--sp-md)"></div>
-    </section>
+    <div class="year">SIIDRO ICT Company Summit</div>
+    <h2 style="font-size:1.6rem">Le tue risposte</h2>
+    <div id="scelte"></div>
+    <p class="muted" id="sceltePie"></p>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="esc.js"></script>
 <script src="device.js"></script>
 </body>
 </html>

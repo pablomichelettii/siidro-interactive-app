@@ -3,157 +3,125 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Il Libro Vivo del 2040 — Main Screen</title>
+<title>SIIDRO ICT Company Summit — Main Screen</title>
 <link rel="stylesheet" href="style.css">
 <style>
   #fx { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; }
   .layout { position: relative; z-index: 3; min-height: 100vh; display: flex; }
 
-  /* INTERLUDIO "giorni nel futuro" — un solo #iReadout: titolo persistente in alto
-     a riposo, che al cambio capitolo cresce al centro (wheel), conta, e torna titolo.
-     Dimensioni qui = stato TITOLO; la wheel è lo stesso elemento scalato via JS. */
+  /* INTERLUDIO — un solo #iReadout: titolo persistente in alto a riposo, che al
+     cambio esempio cresce al centro (wheel) e torna titolo. Senza più date da
+     percorrere: la wheel mostra occhiello + titolo dell'esempio. */
   #iBg { position: fixed; inset: 0; z-index: 5; opacity: 0; pointer-events: none;
-    background-color: var(--bg-slate); background-image: radial-gradient(circle at 50% 42%, var(--ochre-a) 0%, var(--slate-a) 58%, var(--bg-slate) 100%); }
+    background-color: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 42%, var(--accent-a) 0%, transparent 55%), url("circuit.svg"),
+                      radial-gradient(ellipse at 50% 42%, var(--bg-a) 0%, var(--bg-deep) 100%);
+    background-size: 120% 80%, 320px 320px, cover; background-repeat: no-repeat, repeat, no-repeat; }
   /* Dimensioni qui = stato WHEEL (grande): il render nativo è a piena risoluzione,
      così la wheel (scale 1) è nitida; il titolo è lo stesso elemento RIMPICCIOLITO
      (downscale → resta nitido). Scalare in su un render piccolo, invece, sgrana. */
   #iReadout { position: fixed; top: 14px; left: 0; right: 0; z-index: 7; text-align: center; opacity: 0; pointer-events: none;
-    transform-origin: 50% 50%; will-change: transform, opacity; }
-  #iDate { font-family: var(--font-serif); color: var(--white); font-size: clamp(3.8rem, 7.1vw, 5.5rem); line-height: 1.15; margin-bottom: 0.12em; }
-  #iDays { font-family: var(--font-display); font-weight: 800; color: var(--ochre); line-height: 0.95; letter-spacing: 0.02em; font-size: clamp(6.3rem, 13.4vw, 10.9rem); }
-  #iDaysLabel { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); font-size: clamp(2.1rem, 4vw, 3rem); margin-top: 0.3em; }
-  #iTimeline { position: fixed; left: 0; right: 0; top: 62%; z-index: 6; height: 130px; overflow: hidden; opacity: 0; pointer-events: none;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
-            mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
-  #iTrack { position: absolute; left: 50%; top: 50%; height: 0; will-change: transform; }
-  #iTrack .tick { position: absolute; top: 0; width: 1px; height: 16px; background: var(--wire); transform: translate(-50%, -50%); }
-  #iTrack .tick.year { height: 40px; width: 2px; background: rgba(255,255,255,0.5); }
-  #iTrack .tick .lab { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.12em; color: var(--muted); }
-  #iPlayhead { position: absolute; left: 50%; top: 50%; width: 2px; height: 64px; background: var(--ochre); transform: translate(-50%, -50%); box-shadow: 0 0 16px var(--ochre); }
-  #iPlayhead::before { content: ""; position: absolute; left: 50%; top: -8px; width: 10px; height: 10px; border-radius: 50%; background: var(--ochre); transform: translateX(-50%); box-shadow: 0 0 12px var(--ochre); }
+    transform-origin: 50% 50%; will-change: transform, opacity; padding: 0 4vw; }
+  #iOcchiello { font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.2em; color: var(--accent); font-size: clamp(2rem, 3.6vw, 2.8rem); margin-bottom: 0.5em; }
+  #iTitolo { font-family: var(--font-display); font-weight: 800; color: var(--white);
+    line-height: 0.98; letter-spacing: 0.01em; font-size: clamp(4.2rem, 9vw, 7.4rem); text-transform: uppercase; }
 
-  /* calendario del caldo: una riga per mese (etichettata), 31 colonne per i giorni. I giorni >40° arrossano */
-  .heatgrid { margin: 1.3em 0; }
-  .hg-cal { display: grid; grid-template-columns: max-content repeat(31, 1fr); gap: 3px; align-items: center; max-width: 540px; }
-  .hg-mon { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7rem; color: var(--muted); text-align: right; padding-right: 8px; }
-  .hg-cell, .hg-pad { aspect-ratio: 1; border-radius: 2px; }
-  .hg-cell { background: rgba(236,174,49,0.16); }
-  .hg-cell.hot.on { background: var(--terra); box-shadow: 0 0 8px var(--terra); }
-  .heatgrid figcaption { margin-top: 0.7em; font-family: var(--font-serif); color: var(--muted); font-size: 0.95rem; }
-  .heatgrid .hg-count { font-family: var(--font-display); font-weight: 800; color: var(--terra); font-size: 1.7rem; font-variant-numeric: tabular-nums; }
-  main { flex: 1; padding: var(--sp-xl); max-width: 60vw; }
-  #game { justify-content: center; }   /* aside nascosto → colonna centrata */
-  aside { width: 34vw; padding: var(--sp-xl) var(--sp-lg); border-left: 1px solid var(--wire); }
+  /* Colonna singola (§5.1): senza Indice e senza esiti non resta niente da
+     mettere a lato, e i quattro poli di voto hanno bisogno di tutta la larghezza. */
+  main { flex: 1; padding: var(--sp-xl); max-width: 1500px; margin: 0 auto; width: 100%; }
 
   /* lobby */
   #lobby { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--sp-md); }
   #qr { width: min(42vh, 360px); height: min(42vh, 360px); border-radius: 16px; border: 1px solid var(--wire); background: #fff; padding: 14px; }
-  .count { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem,6vw,4rem); color: var(--ochre); }
+  .count { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem,6vw,4rem); color: var(--accent); }
 
-  /* voting poles */
-  .poles { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-lg); margin-top: var(--sp-lg); }
-  .pole { border: 1px solid var(--wire); border-radius: 16px; padding: var(--sp-md); min-height: 34vh; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
-  .pole.facile { border-color: var(--terra); }
-  .pole.difficile { border-color: var(--ochre); }
-  .pole.win { box-shadow: 0 0 0 2px currentColor inset; }
-  .pole.facile.win { color: var(--terra); }
-  .pole.difficile.win { color: var(--ochre); }
-  .pole .opt { font-family: var(--font-serif); font-size: clamp(1rem,1.6vw,1.4rem); color: var(--white); }
+  /* POLI DI VOTO — da 2 a 4, generati da JS. Il colore arriva per indice
+     (--pole-1..4) su --c: una variabile sola, niente classi per opzione. */
+  .poles { display: grid; gap: var(--sp-md); margin-top: var(--sp-lg);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20em), 1fr)); }
+  .pole { border: 1px solid var(--wire); border-color: var(--c); border-radius: 16px; padding: var(--sp-md);
+    min-height: 30vh; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
+  .pole.win { box-shadow: 0 0 0 2px currentColor inset; color: var(--c); }
+  .pole .opt { font-family: var(--font-text); font-size: clamp(1rem,1.6vw,1.4rem); color: var(--white); }
   /* "Cosa guadagni / Cosa paghi" invece di una tabella pro-contro: mette la sala
      davanti al dilemma senza far sembrare ovvia la risposta giusta */
   .pole .gain, .pole .cost { font-size: 0.95rem; color: var(--muted); margin-top: 0.9em; }
   .pole .gain b, .pole .cost b { display: block; font-family: var(--font-display); font-weight: 700;
-    font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 0.25em; }
-  .pole.facile .gain b, .pole.facile .cost b { color: var(--terra); }
-  .pole.difficile .gain b, .pole.difficile .cost b { color: var(--ochre); }
+    font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 0.25em; color: var(--c); }
   .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem,7vw,5rem); font-variant-numeric: tabular-nums; min-width: 0; }
+  /* con tre o quattro opzioni lo spazio si stringe: i testi rientrano */
+  .poles.stretta .pole { min-height: 24vh; padding: var(--sp-sm) var(--sp-md); }
+  .poles.stretta .opt { font-size: clamp(0.95rem,1.25vw,1.15rem); }
+  .poles.stretta .gain, .poles.stretta .cost { font-size: 0.85rem; margin-top: 0.6em; }
+  .poles.stretta .n { font-size: clamp(2rem,4vw,3.2rem); }
   /* timer del voto: una barra che si svuota, senza cifre — un numero che scende
      mette fretta, una barra dà il tempo che resta senza contarlo */
   .votebar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: var(--sp-sm); }
-  .votebar > i { display: block; height: 100%; width: 100%; background: var(--ochre); transform-origin: left center; }
+  .votebar > i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left center; }
   #voteCount { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.12em;
     text-transform: uppercase; font-size: 0.95rem; color: var(--muted); margin-top: var(--sp-sm); }
-  #voteCount b { font-size: 2.2rem; color: var(--ochre); letter-spacing: 0; vertical-align: -0.15em; }
+  #voteCount b { font-size: 2.2rem; color: var(--accent); letter-spacing: 0; vertical-align: -0.15em; }
   /* dice che il silenzio è voluto, non un guasto */
   #voteCount .pill { display: inline-block; margin-left: 0.8em; padding: 0.35em 0.9em; font-size: 0.7rem;
     border: 1px solid var(--wire); border-radius: 999px; letter-spacing: 0.1em; }
 
-  /* MEZZA FIGURA (§4.6) — identica per tutti e cinque gli intrecci. Nessun colore
-     di segno, nessuna lettera leggibile: la sala vede CHE sta costruendo qualcosa,
-     non cosa. Se un giorno diventa un asset disegnato, si sostituisce qui. */
-  .parziale { border: 1px solid rgba(255,255,255,0.35); border-radius: 16px; padding: var(--sp-md);
-    max-width: 30em; background: rgba(255,255,255,0.04); }
-  .parziale .redacted { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: var(--sp-sm); }
-  .parziale .redacted i { display: block; height: 1.1rem; border-radius: 3px; background: rgba(255,255,255,0.28); }
-  .parziale .half { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14); overflow: hidden; }
-  .parziale .half > i { display: block; height: 100%; width: 50%; background: rgba(255,255,255,0.5); }
-  .parziale p { margin: var(--sp-sm) 0 0; color: var(--muted); font-size: 0.95rem; }
-
-  /* rivelazione: la forbice finale si vede sempre qui, anche dove il live era spento */
-  .revtally { display: flex; gap: var(--sp-md); font-family: var(--font-display); font-weight: 800;
-    font-size: clamp(1.6rem,4vw,3rem); font-variant-numeric: tabular-nums; margin: var(--sp-sm) 0; }
-  .revtally span:first-child { color: var(--terra); }
-  .revtally span:last-child { color: var(--ochre); }
-  /* il nome dell'esito è la cosa che il narratore annuncia: va grande */
-  #revEsito .fired { font-size: 1.05rem; padding: var(--sp-md); }
-  #revEsito .fired .nome { font-size: clamp(1.3rem,3vw,2.2rem); letter-spacing: 0.02em; margin-bottom: 0.5em; }
-  /* SCENARIO GLOBALE — i sei esiti raggruppati per cosa hanno fatto al mondo.
-     Non è una tabella di finali: il raggruppamento si compone a runtime, e i
-     gruppi vuoti non compaiono (se niente ha tenuto, non c'è «ha tenuto»). */
-  .scenario { margin-top: var(--sp-xl); }
-  .scenario .indice { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em;
-    text-transform: uppercase; font-size: 0.95rem; color: var(--muted); margin: 0.4em 0 var(--sp-lg); }
-  .scenario .indice b { font-size: 2.2rem; color: var(--ochre); letter-spacing: 0; }
-  .gruppo { margin-bottom: var(--sp-lg); }
-  .gruppo h3 { display: flex; align-items: baseline; gap: 0.6em; margin: 0 0 var(--sp-sm);
-    font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
-    font-size: clamp(1rem, 1.8vw, 1.5rem); }
-  .gruppo .conta { font-size: 0.75em; color: var(--muted); }
-  .gruppo.rotto h3 { color: var(--terra); }
-  .gruppo.tenuto h3 { color: var(--ochre); }
-  .gruppo.meta h3 { color: rgba(255,255,255,0.75); }
-  /* il climax chiude: è l'unica cosa che non è un intreccio */
-  .scenario .chiusura { border-top: 1px solid var(--wire); padding-top: var(--sp-md); margin-top: var(--sp-lg);
+  /* rivelazione: la forbice completa si vede sempre qui, anche dove il live era spento */
+  .revtally { display: flex; flex-wrap: wrap; gap: var(--sp-md); margin: var(--sp-md) 0; }
+  .revtally .voce { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums;
+    font-size: clamp(1.4rem,3vw,2.4rem); color: var(--c); }
+  .revtally .voce small { display: block; font-family: var(--font-text); font-weight: 400;
+    font-size: 0.8rem; letter-spacing: 0; text-transform: none; color: var(--muted); max-width: 14em; }
+  #revChiusura { border-left: 3px solid var(--accent); padding: 0.4em 0 0.4em 1em; margin-top: var(--sp-lg);
     font-size: clamp(1rem,1.6vw,1.3rem); }
-  .scenario .chiusura .nome { display: block; font-family: var(--font-display); font-weight: 800;
-    text-transform: uppercase; letter-spacing: 0.02em; font-size: clamp(1.4rem,3vw,2.4rem); margin-bottom: 0.4em; }
-  .scenario .chiusura.neg .nome { color: var(--terra); }
-  .scenario .chiusura.pos .nome { color: var(--ochre); }
+  /* CHAT — flusso di dati che sale nella banda bassa. Serve al narratore per
+     pescare gli interventi: conta che si veda arrivare, non che si legga come
+     un documento. Tre corsie, così tre messaggi insieme non si coprono. */
+  #chat { position: fixed; left: 0; right: 0; bottom: 0; height: 40vh; z-index: 4;
+    pointer-events: none; overflow: hidden; }
+  .bolla { position: absolute; bottom: 0; width: 28%; padding: 0.5em 0.8em 0.5em 1em;
+    background: linear-gradient(90deg, rgba(28,28,28,0.92), rgba(28,28,28,0.55) 80%, transparent);
+    border-left: 2px solid var(--accent); border-radius: 0 10px 10px 0;
+    font-family: var(--font-mono); font-size: clamp(0.95rem, 1.25vw, 1.25rem); line-height: 1.4;
+    color: var(--white); text-shadow: 0 2px 12px rgba(0,0,0,0.85); will-change: transform, opacity; }
+  .bolla.c0 { left: 3vw; } .bolla.c1 { left: 36vw; } .bolla.c2 { left: 69vw; }
+  .bolla .chi { font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.14em; font-size: 0.62em; color: var(--accent); display: block; margin-bottom: 0.2em; }
+  /* il cursore dice che il messaggio sta ancora "arrivando" */
+  .bolla .txt::after { content: "_"; color: var(--accent); animation: caret 0.9s steps(1) infinite; }
+  .bolla.finita .txt::after { content: none; }
+  @keyframes caret { 50% { opacity: 0; } }
+  body.conchat #game main { padding-bottom: 32vh; }
   .beat { margin: 1em 0; }
   .agg { display: flex; justify-content: space-between; border-bottom: 1px solid var(--wire); padding: 0.4em 0; font-size: 0.9rem; }
-  .agg b { color: var(--ochre); }
+  .agg b { color: var(--accent); }
 </style>
 </head>
 <body>
 <canvas id="fx"></canvas>
+<div id="chat"></div>
 
-<!-- INTERLUDIO GIORNI — sfondo + timeline (visibili solo durante il conteggio)
-     e il readout, unico elemento: titolo in alto a riposo, wheel al centro in azione -->
+<!-- INTERLUDIO — sfondo (solo durante il cambio) e il readout, unico elemento:
+     titolo in alto a riposo, wheel al centro in azione -->
 <div id="iBg"></div>
-<div id="iTimeline">
-  <div id="iTrack"></div>
-  <div id="iPlayhead"></div>
-</div>
 <div id="iReadout">
-  <div id="iDate"></div>
-  <div id="iDays">0</div>
-  <div id="iDaysLabel">giorni nel futuro</div>
+  <div id="iOcchiello"></div>
+  <div id="iTitolo"></div>
 </div>
 
 <!-- LOBBY -->
 <div id="lobby" class="wrap">
-  <div class="year">Next 5000 Days · SIIDRO 2026</div>
-  <h1 class="hero">Il Libro Vivo<br>del 2040</h1>
-  <p class="muted">Inquadra il codice per entrare. Poi segui lo schermo.</p>
+  <div class="year">SIIDRO 2026 · Lucca</div>
+  <h1 class="hero">SIIDRO ICT<br>Company Summit</h1>
+  <p class="muted">Un tavolo, non un palco. Inquadra il codice per entrare.</p>
   <img id="qr" alt="QR di accesso">
-  <div><span class="count" id="lobbyCount">0</span> <span class="muted">lettori collegati</span></div>
+  <div><span class="count" id="lobbyCount">0</span> <span class="muted">al tavolo</span></div>
 </div>
 
-<!-- GIOCO -->
+<!-- GIOCO — colonna singola (§5.1). Il titolo dell'esempio sta nel readout in
+     alto (l'interludio lo lascia lì a riposo): qui sotto solo il corpo. -->
 <div id="game" class="layout wrap hidden">
   <main id="col">
-    <div class="year" id="chYear"></div>
-    <h2 id="chTitle"></h2>
     <div id="chBody"></div>
 
     <div id="voteArea" class="hidden">
@@ -161,59 +129,34 @@
       <div class="votebar"><i id="voteFill"></i></div>
       <!-- a live spento è qui che la sala vede che si sta votando, senza sapere da che parte -->
       <div class="muted" id="voteCount"></div>
-      <div class="poles">
-        <div class="pole facile" id="poleFacile">
-          <div><div class="opt"></div><div class="gain"></div><div class="cost"></div></div>
-          <div class="n">0</div>
-        </div>
-        <div class="pole difficile" id="poleDifficile">
-          <div><div class="opt"></div><div class="gain"></div><div class="cost"></div></div>
-          <div class="n">0</div>
-        </div>
-      </div>
+      <div class="poles" id="poles"></div>
     </div>
 
-    <!-- RIVELAZIONE — dopo la chiusura del voto: cosa ha scelto la sala e,
-         se questo capitolo chiudeva un intreccio, l'esito che si è saldato -->
+    <!-- RIVELAZIONE — dopo la chiusura del voto: cosa ha scelto la sala,
+         la forbice completa, il costo nascosto di quello che ha vinto -->
     <div id="revealArea" class="hidden">
-      <div class="year" id="revLabel"></div>
+      <div class="year">La sala ha scelto</div>
       <h2 id="revChoice" style="font-size:clamp(1.4rem,2.6vw,2.2rem)"></h2>
-      <div class="revtally"><span id="revF"></span><span id="revD"></span></div>
+      <div class="revtally" id="revTally"></div>
       <p class="muted" id="revCosto"></p>
-      <div id="revEsito" style="margin-top:var(--sp-lg)"></div>
+      <p id="revChiusura"></p>
     </div>
   </main>
-
-  <!-- pannello scelte partecipanti: nascosto per ora (contenuti ancora aggiornati dal sync, non rimuovere) -->
-  <aside class="hidden">
-    <div class="worldname" id="worldName">In bilico</div>
-    <div class="muted" id="worldSub"></div>
-    <div class="delega-wrap">
-      <div class="delega-lab"><span>Mani sul volante</span><span>Pilota automatico</span></div>
-      <div class="track"><i id="delegaFill" style="width:50%"></i></div>
-    </div>
-    <div class="muted" id="progress" style="font-size:0.8rem"></div>
-    <div id="firedList" style="margin-top:var(--sp-md)"></div>
-    <div id="counter" class="count" style="margin-top:var(--sp-md)"></div>
-  </aside>
 </div>
 
-<!-- FINALE -->
+<!-- FINALE — niente scenario da comporre: resta l'elenco degli esempi con
+     quello che ha scelto la sala (§5.2). Il finale personale sta sul telefono. -->
 <div id="ended" class="layout wrap hidden">
   <main>
-    <div class="year">2040 · Lo Specchio</div>
-    <!-- lo stesso scenario del capitolo 14, che resta consultabile -->
-    <div id="endedScenario"></div>
-    <p class="muted" style="margin-top:var(--sp-lg)">Controllate il telefono: c'è il vostro 2040.</p>
+    <div class="year">SIIDRO ICT Company Summit</div>
+    <h2>Cosa ha scelto il tavolo</h2>
+    <div id="aggregates" style="margin-top:var(--sp-md)"></div>
+    <p class="muted" style="margin-top:var(--sp-lg)">Sul telefono trovate le vostre risposte, accanto a quelle del tavolo.</p>
   </main>
-  <aside>
-    <div class="muted" id="consensus" style="margin-bottom:var(--sp-md)"></div>
-    <div class="year">Come ha votato la sala</div>
-    <div id="aggregates" style="margin-top:var(--sp-sm)"></div>
-  </aside>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="esc.js"></script>
 <script src="/vendor/gsap/gsap.min.js"></script>
 <script src="main.js"></script>
 </body>
