@@ -1,128 +1,150 @@
-# Il Libro Vivo del 2040 — MVP
+# SIIDRO ICT Company Summit — app interattiva del tavolo
 
-Web app narrativa multiplayer real-time per l'evento scuole SIIDRO 2026.
-Spec: [`MASTER-PROMPT-MVP.md`](./MASTER-PROMPT-MVP.md) · Meccaniche: `SIIDRO 2026 - Libro Vivo - Handoff...md`.
+Web app real-time per il Forum: sul proiettore scorrono le domande, i telefoni
+in sala votano, la regia pilota tutto da un cruscotto privato e decide quali
+messaggi della chat finiscono sullo schermo.
+
+Non c'è un racconto e non c'è una risposta giusta: ogni domanda è autonoma, la
+sala sceglie, la scelta si rivela e si passa alla successiva. Il confronto tra
+la domanda di apertura e quella di chiusura è il punto dell'intera serata.
+
+Specifica e decisioni: [`SIIDRO-INTERACTIVE-APP.md`](./SIIDRO-INTERACTIVE-APP.md) ·
+storia del progetto da cui nasce: [`docs/legacy/`](./docs/legacy/).
 
 ## Avvio
 
 ```bash
 npm install
-cp .env.example .env   # configurazione: chiave OpenRouter, token regia, porta…
+cp .env.example .env   # porta, token di regia, manopole della chat
 npm start              # porta 3000 (PORT=xxxx per cambiarla)
-npm test               # self-check motore + sessione
+npm test               # self-check della sessione: voto, pareggi, viste, chat
 ```
 
-`npm start` legge `.env` da solo — lo fa Node, non serve `dotenv`. **Senza `.env` l'app parte comunque** coi default. Il file è in `.gitignore`, la chiave non finisce nel repo. Tutte le variabili sono documentate in [`.env.example`](./.env.example) e riassunte qui sotto.
+Serve **Node 22 o superiore** (`--env-file-if-exists` non esiste prima).
+`npm start` legge `.env` da solo, senza `dotenv`: **senza `.env` l'app parte
+comunque** coi default. Il file è in `.gitignore`.
 
-Tre superfici (stesso server, host = IP LAN della macchina in sala):
+Tre superfici, stesso server (host = IP LAN della macchina in sala):
 
-| Superficie | URL | Note |
+| Superficie | URL | Cosa fa |
 |---|---|---|
-| **Main Screen** (proiettore) | `http://<ip-lan>:3000/?role=main` | mostra QR, storia, particelle, finale |
-| **Regista** (privato) | `http://<ip-lan>:3000/?role=director` | comandi + Indice di Delega + nomi degli esiti da annunciare. In deploy pubblico: `...&k=<token>` |
-| **Partecipanti** (telefoni) | inquadrano il QR sul Main Screen | accoglienza con nome/nickname + data di nascita |
+| **Proiettore** | `http://<ip-lan>:3000/?role=main` | QR d'ingresso, domande, poli di voto, particelle, chat approvata, esiti |
+| **Regia** (privata) | `http://<ip-lan>:3000/?role=director` | comandi, forbice vera, elenco delle domande, coda della chat. In deploy pubblico: `...&k=<token>` |
+| **Partecipanti** | inquadrano il QR sul proiettore | un campo solo: il nome, che firma i messaggi in chat |
 
-> **Apri sempre il Main Screen dall'indirizzo che useranno i telefoni** (IP LAN in sala, o dominio pubblico), non da `localhost`: il QR codifica l'origin della pagina Main.
+> **Apri il proiettore dall'indirizzo che useranno i telefoni** (IP LAN, o il
+> dominio pubblico), non da `localhost`: il QR codifica l'origin di quella pagina.
 
 ### Variabili d'ambiente
 | Var | Default | Note |
 |---|---|---|
 | `PORT` | `3000` | porta di ascolto |
-| `DIRECTOR_TOKEN` | *(vuoto)* | se impostata, la regia è accessibile solo con `?role=director&k=<token>`. Vuota = regia libera (ok in locale, **da impostare in deploy pubblico**) |
-| `OPENROUTER_API_KEY` | *(vuota)* | chiave per generare gli epiloghi individuali. **Senza, la serata funziona lo stesso**: tutti ricevono il fallback pre-scritto |
-| `OPENROUTER_MODEL` | `deepseek/deepseek-v4-flash-0731` | slug del modello su OpenRouter. Il default è **il modello economico di proposito**: uno più caro va scelto apposta in `.env`, non subito per distrazione. ⚠️ se lo slug non esiste la chiamata fallisce e parte il fallback |
-| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | endpoint OpenAI-compatibile |
-| `EPILOGO_TIMEOUT_MS` | `60000` | oltre questo, l'epilogo di quello studente è il fallback |
-| `EPILOGO_MAX_TOKENS` | `4000` | tetto su **ragionamento + testo**. I modelli che ragionano spendono 400-550 token prima di scrivere: sotto i 2000 gli epiloghi escono troncati. È un tetto, non una prenotazione — si paga il consumo reale |
-| `EPILOGO_PARALLELE` | `6` | chiamate simultanee. I 9 minuti del cap. 13 bastano; alzare se in prova risulta lento |
-| `EPILOGHI_DIR` | `data/epiloghi` | dove finiscono gli epiloghi rileggibili dal link |
-| `EPILOGHI_RETENTION_GIORNI` | `30` | dopo quanti giorni i file vengono cancellati all'avvio |
+| `DIRECTOR_TOKEN` | *(vuoto)* | se impostata, la regia richiede `?role=director&k=<token>`. Vuota = regia libera: ok in locale, **da impostare in deploy pubblico** |
+| `CHAT_ATTIVA` | `1` | `0` spegne la chat ovunque: la casella sparisce dal telefono e il server rifiuta comunque |
+| `CHAT_MAX_CHARS` | `140` | oltre, il messaggio viene **troncato**, non rifiutato |
+| `CHAT_COOLDOWN_MS` | `5000` | tra due messaggi dello stesso partecipante |
+| `CHAT_MAX_IN_CODA` | `2` | quanti messaggi in attesa può avere una sola persona |
+| `CHAT_BOLLA_MS` | `12000` | quanto dura la salita di una bolla sul proiettore. **Da calibrare col proiettore vero**: dal fondo sala, 4 secondi non bastano |
+
+## Il contenuto: dove si cambiano le domande
+Tutto in [`server/content.js`](./server/content.js), dati e basta, nessuna logica.
+L'array `ESEMPI` oggi contiene 14 slide, di cui **11 votabili**: apertura, tre
+blocchi da tre domande (ciascuno preceduto da una slide di stacco con la
+macro-domanda), chiusura.
+
+Campi di una slide:
+
+| Campo | Note |
+|---|---|
+| `id` | stabile: sta negli URL, nei log e nel cruscotto. Non si riusa |
+| `occhiello`, `titolo` | li mostra l'interludio tra una slide e l'altra |
+| `votabile` | `false` = slide di stacco, il regista la passa con *Avanti* |
+| `mostra_live` | `true` = la sala vede la forbice mentre si vota. Con `false` vede solo quanti hanno votato, e i numeri escono alla chiusura |
+| `durata_voto_sec` | `0` = nessun timer, chiude solo il regista |
+| `beats` | facoltativo: stringa = paragrafo, `{ sig }` = riquadro, `{ counter }` = numero che sale. **Senza `beats` il proiettore legge la domanda** |
+| `q` + `opzioni` | da 2 a 4 opzioni, `tag` unico dentro la domanda. Nessuna è quella giusta |
+| `guadagno` / `costo_nascosto` | facoltativi, per opzione: se ci sono, compaiono sotto l'opzione e alla rivelazione |
+| `nota` | **solo cruscotto regia**: la lettura della risposta. Non si proietta mai |
+| `chiusura` | la riga che chiude la rivelazione sul proiettore |
+
+L'ordine dell'array è solo il default: dal cruscotto si salta dove si vuole.
 
 ## Flusso in sala
-1. Apri Main Screen (lobby: QR) e Regista.
-2. I ragazzi scansionano → **accoglienza**: nome (o nickname) e data di nascita, che serve per l'età esatta nel 2040. Poi pallini che fluttuano.
-3. Regista: **Inizia** → scorre il capitolo → **Apri voto** → i telefoni votano → le particelle si polarizzano. Il voto **si chiude da sé** allo scadere di `durata_voto_sec` (60s di default): **Chiudi voto** serve solo per anticipare, **Forza ↘/↗** per il pareggio.
-4. **Chiudi voto non avanza**: il capitolo resta a schermo e mostra cosa ha scelto la sala, la forbice finale e — se questo capitolo chiudeva un intreccio — l'esito col nome che il narratore annuncia. Il cruscotto lo scrive nella card *Da annunciare*. Poi **Avanti ▷**. **Riapri voto** annulla l'ultima chiusura, da qui o dopo essere avanzato.
-5. Dopo i 12 bivi restano il capitolo 13 (climax, legge l'Indice di Delega) e il 14 (chiusura): non si votano, li avanza **Avanti ▷**.
-6. **Alla chiusura del capitolo 12 gli epiloghi si generano da soli**, nei 9 minuti del 13. Il cruscotto mostra l'avanzamento; quando è pronto si accende **📱 Rivela epiloghi**.
-7. Il narratore chiude lo scenario globale, dice «adesso guardate il telefono», e **solo allora** il regista preme: novanta schermi si accendono insieme. Ogni studente ha anche un link `/e/<token>` per rileggerlo nei giorni dopo.
+1. Apri proiettore (lobby col QR) e regia.
+2. I partecipanti scansionano, lasciano il nome, e diventano una particella che fluttua.
+3. Regia: **Inizia** → la slide → **Apri voto** → i telefoni votano, le particelle si polarizzano. Il voto **si chiude da sé** allo scadere di `durata_voto_sec`; *Chiudi voto* serve solo ad anticipare.
+4. **Chiudere il voto non avanza**: la domanda resta a schermo con l'opzione vinta, la forbice completa e la `chiusura`. Poi **Avanti ▷**. **Riapri voto** annulla l'ultima chiusura, anche dopo essere andato avanti.
+5. A parità di voti vince la prima opzione dell'elenco — regola sola, scritta e prevedibile. Dal cruscotto si può **forzare** qualunque altra.
+6. Alla fine il proiettore mostra cosa ha scelto il tavolo, domanda per domanda; ogni telefono mostra le **proprie** risposte accanto a quelle della sala, e quante volte è rimasto in minoranza.
 
-## Testare più connessioni in locale
-> ⚠️ **Node non ricarica i moduli.** Dopo ogni modifica a `server/…` il processo va riavviato, anche in locale: un server lasciato acceso risponde benissimo e parla il codice di ieri. Il loadtest se ne accorge e lo dice, il browser no.
+### Chat moderata
+Si scrive **solo a voto aperto**, firmata col nome, un messaggio ogni
+`CHAT_COOLDOWN_MS`. Niente arriva sul proiettore se il regista non lo approva:
+dalla coda del cruscotto si pubblica, si rifiuta, o si silenzia per la serata
+chi esagera. Il mittente vede sempre che fine ha fatto il suo messaggio — senza,
+lo riscrive e la coda raddoppia da sola. Sullo schermo i messaggi approvati
+salgono su tre corsie decodificandosi: servono al narratore per pescare gli
+interventi, non a essere letti come un documento.
 
-- **Tab multipli** (rapido): ogni scheda su `/?role=device` è un socket distinto (il `cid` sta in `localStorage`, quindi per schede dello **stesso** browser serve una finestra in incognito o un profilo diverso per avere partecipanti distinti). Apri Main + Regia in due finestre e qualche tab device.
-- **Telefoni sulla stessa wifi**: il server ascolta su `0.0.0.0`. Trova l'IP e apri il Main da lì:
+## Provare in locale
+> ⚠️ **Node non ricarica i moduli.** Dopo ogni modifica a `server/…` il processo
+> va riavviato: un server lasciato acceso risponde benissimo e parla il codice di
+> ieri. Le modifiche a `public/…` bastano un hard-reload.
+
+- **Tab multipli**: ogni scheda su `/?role=device` è un socket distinto, ma il `cid` sta in `localStorage` — per avere partecipanti *diversi* dallo stesso browser serve una finestra in incognito o un altro profilo.
+- **Telefoni sulla stessa wifi** (il server ascolta su `0.0.0.0`):
   ```bash
   ipconfig getifaddr en0     # macOS, es. 192.168.1.42
   hostname -I                # Linux
   # apri http://<ip>:3000/?role=main → i telefoni scansionano il QR
   ```
-- **Load test** (N partecipanti finti che si connettono, entrano e votano ogni bivio, con la regia pilotata in automatico):
+- **Load test** — N partecipanti finti che entrano e votano ogni domanda, con la regia pilotata in automatico:
   ```bash
-  npm run loadtest -- 80            # veloce, pura verifica di carico
+  npm run loadtest -- 80           # veloce, pura verifica di carico
   npm run loadtest -- 30 5         # DEMO guardabile: 30 utenti, 5s per fase
-  # contro un server remoto / con token regia:
-  URL=https://libro.tuodominio.it DIRECTOR_TOKEN=xxx npm run loadtest -- 120
+  URL=https://summit.tuodominio.it DIRECTOR_TOKEN=xxx npm run loadtest -- 120
   ```
-  - **2° argomento = secondi per fase** (lettura capitolo + finestra di voto). `0` = full speed. Durata partita ≈ `28 × secondi` (12 bivi × 2 fasi + 2 capitoli narrati). Con ritmo > 0 i voti arrivano scaglionati → apri `…/?role=main` e guardi le particelle migrare a poco a poco.
-  - **`SCENARIO=` forza la serata**: 12 lettere `f`/`d`, una per capitolo. Serve a vedere a schermo un mondo preciso senza sperare che i voti casuali ci arrivino.
+  - **2° argomento = secondi per fase** (lettura + finestra di voto). `0` = full speed. Con ritmo > 0 i voti arrivano scaglionati e sul proiettore si vedono le particelle migrare.
+  - **`SCENARIO=` forza l'esito**: una cifra per domanda votabile (oggi 11) = indice dell'opzione che deve vincere. Serve a vedere a schermo un risultato preciso senza sperarci.
     ```bash
-    SCENARIO=dddddddddddd npm run loadtest -- 90   # tutti e sei gli esiti positivi
-    SCENARIO=ffffffffffff npm run loadtest -- 90   # tutti e sei negativi
-    SCENARIO=ffffffdddddd npm run loadtest -- 90   # la sala si pente a metà → terze vie
-    SCENARIO=ddddddffffff npm run loadtest -- 90   # la sala si stanca a metà
+    SCENARIO=00000000000 npm run loadtest -- 90   # tutti sulla prima opzione
+    SCENARIO=01230123012 npm run loadtest -- 90   # uno per opzione, a giro
     ```
-  - Senza `SCENARIO` la sala è casuale su **due livelli**: una disposizione per l'intera serata, più un umore per capitolo. Serve perché con una probabilità fissa per client, a 90 votanti la maggioranza non gira mai e usciva sempre lo stesso mondo.
-  - Override fini: `READ_MS` (sosta sul capitolo) e `VOTE_MS` (finestra di voto), in millisecondi.
-  - Riporta connessioni riuscite, voti/latenza per round ed esito. Verificato fino a 200 client in locale (~40ms/round). NB: resetta e guida la sessione, non lanciarlo durante un evento reale.
+    Un indice fuori portata si arrotonda giù (le domande hanno da 2 a 4 opzioni).
+  - Override fini: `READ_MS` e `VOTE_MS`, in millisecondi.
+  - Verificato fino a 200 client in locale (~40ms/round). **Resetta e guida la sessione: non lanciarlo durante l'evento.**
 
-## Provare gli epiloghi prima dell'evento
-Il §8.4 della patch chiede di generare qualche centinaio di profili sintetici sulle combinazioni estreme **e rileggerli**: è l'unico modo di sapere cosa produce il modello quando la sala ha fatto un disastro.
-
+## Deploy — in sala, via LAN (consigliato)
+Offline, latenza bassa, nessuna dipendenza da internet.
 ```bash
-npm run epiloghi              # 8 profili — verifica al volo che chiave e slug funzionino
-npm run epiloghi -- 200       # la prova vera, da rileggere
-npm run epiloghi -- 200 json  # anche in JSON, per analizzarli altrove
-npm run epiloghi -- 1 prompt  # il prompt esatto, senza chiamare nulla (gratis)
-```
-
-**Salva sempre un file** in `data/prove-epiloghi/` e ne stampa il percorso — duecento epiloghi non si leggono a terminale, e redirigere con `>` non funziona perché ci finirebbe dentro l'intestazione di npm. La cartella `data/` è in `.gitignore`.
-
-Ogni epilogo porta accanto la **sintesi delle scelte**, per verificare la coerenza senza tornare indietro: due righe di frecce (le tue e quelle della sala), quante volte sei rimasto in minoranza, e **la rosa che il modello ha ricevuto** con l'ordine di costruirci sopra la scena — se il testo non tocca nessuna di quelle, non ha obbedito.
-
-Copre 5 tipi di sala × 4 tipi di studente, compresi *entrato al capitolo 6* e *non ha mai votato*. Controlla in automatico: lunghezza 180-220 parole, apertura conforme, parole vietate (morte, malattia, diagnosi…), gergo dello spettacolo che trapela, tono giudicante. **Non** giudica il tono, le immagini, né se l'epilogo chiude davvero su un elemento di agentività — quelli si leggono.
-
-## Deploy — evento in sala (LAN, consigliato)
-Per l'evento la LAN è la scelta più robusta: offline, bassa latenza, nessuna dipendenza da internet.
-```bash
-git clone <repo> && cd n5d-future-book
+git clone <repo> && cd siidro-interactive-app
 npm install
-PORT=3000 npm start                 # apri la porta 3000 nel firewall
-# device → http://<ip-macchina>:3000 ; Main → http://<ip-macchina>:3000/?role=main
+PORT=3000 npm start          # apri la porta 3000 nel firewall
+# proiettore → http://<ip-macchina>:3000/?role=main
 ```
 
 ## Deploy — pubblico su internet (Linux + dominio + nginx + TLS)
-Serve la macchina raggiungibile dall'esterno su 80/443 e un record DNS `A` `libro.tuodominio.it` → IP pubblico.
-(Se la macchina **non** è raggiungibile — no IP pubblico, CGNAT, porte chiuse — allora un tunnel tipo `cloudflared tunnel --url http://localhost:3000` è l'alternativa che bypassa il NAT.)
+Serve la macchina raggiungibile su 80/443 e un record DNS `A` verso il suo IP.
+(Se non è raggiungibile — CGNAT, porte chiuse — `cloudflared tunnel --url
+http://localhost:3000` bypassa il NAT.)
 
-**1) Node + app + persistenza**
+**1) Node + app**
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -   # Node 22: sotto, --env-file-if-exists non esiste
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -   # Node 22 minimo
 sudo apt-get install -y nodejs
-git clone <repo> && cd n5d-future-book
+git clone <repo> && cd siidro-interactive-app
 npm install
 sudo npm i -g pm2
-cp .env.example .env && nano .env      # DIRECTOR_TOKEN, OPENROUTER_API_KEY, PORT
-pm2 start npm --name libro -- start     # npm start legge .env da solo
-pm2 save && pm2 startup             # esegui la riga che stampa (auto-avvio al boot)
+cp .env.example .env && nano .env       # DIRECTOR_TOKEN su tutto: la regia non va lasciata aperta
+pm2 start npm --name siidro -- start    # npm start legge .env da solo
+pm2 save && pm2 startup                 # esegui la riga che stampa (auto-avvio al boot)
 ```
-Node resta su `localhost:3000`, non esposto direttamente; nginx fa da fronte.
 
-**2) nginx come reverse proxy** — `/etc/nginx/sites-available/libro`:
+**2) nginx come reverse proxy** — `/etc/nginx/sites-available/siidro`:
 ```nginx
 server {
     listen 80;
-    server_name libro.tuodominio.it;
+    server_name summit.tuodominio.it;
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -139,46 +161,37 @@ server {
 }
 ```
 ```bash
-sudo ln -s /etc/nginx/sites-available/libro /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/siidro /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**3) TLS con Let's Encrypt** (aggiunge da solo il blocco 443 + redirect 80→443):
+**3) TLS con Let's Encrypt** (aggiunge da sé il blocco 443 e il redirect):
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d libro.tuodominio.it
-sudo ufw allow 'Nginx Full'         # 80 + 443
+sudo certbot --nginx -d summit.tuodominio.it
+sudo ufw allow 'Nginx Full'
 ```
 
-**Insidia unica:** senza le righe `Upgrade`/`Connection` nginx non fa l'upgrade del protocollo e Socket.IO cade in polling o si rompe sull'handshake `ws`. Con quelle, tutto passa trasparente (il path `/socket.io/` è coperto da `location /`).
+**L'insidia è una sola:** senza le righe `Upgrade`/`Connection` nginx non fa
+l'upgrade di protocollo e Socket.IO cade in polling o si rompe sull'handshake.
+Con quelle, `/socket.io/` passa trasparente dentro `location /`.
 
-**URL all'evento** (su `https://`):
-- Main (proiettore) → `https://libro.tuodominio.it/?role=main`
-- Regia (solo operatore) → `https://libro.tuodominio.it/?role=director&k=una-stringa-lunga-e-segreta`
-- Device → il QR sul Main Screen
-
-## Aggiornare sul server (deploy attuale)
-Setup in produzione: `/var/www/next5000days` · pm2 `next5000days` · dietro nginx su `next5000days.pablomicheletti.it`.
+**Aggiornare** (con `<dir>` e `<nome-pm2>` del tuo deploy):
 ```bash
-cd /var/www/next5000days
-git pull
-npm install            # solo se sono cambiate le dipendenze (package.json)
-pm2 restart next5000days
+cd <dir> && git pull
+npm install                 # solo se è cambiato package.json
+pm2 restart <nome-pm2>      # necessario per server/… e dopo aver toccato .env
 ```
-- La configurazione sta in `.env`, letto a ogni avvio: dopo averlo modificato serve `pm2 restart`.
-- Le modifiche solo-frontend (`public/…`) sono già servite dopo il `git pull`: basta un hard-reload del browser, il `pm2 restart` non è indispensabile (ma non fa danni).
-- Modifiche a `server/…`: il `pm2 restart` è necessario.
-- Verifica: `pm2 status next5000days` e `pm2 logs next5000days --lines 30`.
 
 ## Architettura (essenziale)
-- Un processo Node (Fastify + Socket.IO). Stato **in memoria**, niente DB. **Non più del tutto anonimo**: nome e data di nascita servono all'epilogo. La data di nascita resta in memoria e muore col processo; a disco finisce solo l'epilogo salvato (nome + stringa età + testo), con retention.
-- `server/epilogo.js` — generazione via OpenRouter (API OpenAI-compatibile, `fetch`, nessuna dipendenza), fallback obbligatorio, persistenza e retention. **Il nome non entra mai nella chiamata**: il modello scrive `{NOME}`/`{ETA}` e il server interpola dopo.
-- `server/content.js` — **tutti i testi**, nessuna logica: 14 capitoli 2027→2040, 6 intrecci, varianti del cap. 12, climax, fallback dell'epilogo.
-- `server/engine.js` — solo funzioni pure. Lo stato **non è accumulato**: `derive(history)` ricava Indice, banda, stato dei sei intrecci e climax dall'elenco dei vincitori. Per questo "riapri voto" e "forza esito" sono un `pop` di `history`.
-- `server/session.js` — doppio binario: `history` (maggioranza → Main Screen) + i voti di ognuno (`Map<cid, Map<capitolo, tag>>`).
-- `public/` — 3 pagine vanilla; particelle su Canvas 2D.
+- Un processo Node (Fastify + Socket.IO), stato **in memoria**, niente DB, niente disco: nomi e voti muoiono col processo. Un processo = una sala.
+- [`server/content.js`](./server/content.js) — tutti i testi, zero logica.
+- [`server/session.js`](./server/session.js) — lo stato autorevole. Non accumula: tiene `history` (un vincitore per domanda) e i voti di ciascuno, e **ricava tutto il resto a ogni vista**. Per questo *riapri voto* è un `pop` di `history`. Qui stanno anche i controlli della chat, lato server, qualunque cosa faccia il client.
+- [`server/index.js`](./server/index.js) — bootstrap, QR generato server-side, GSAP servito da `node_modules` (niente CDN: la rete della sede non è un requisito), gate della regia.
+- [`public/`](./public/) — tre pagine vanilla, particelle su Canvas 2D, transizioni GSAP, fondo a circuiti in [`circuit.svg`](./public/circuit.svg). I colori del brand stanno in [`style.css`](./public/style.css) (`--accent: #4391FF`, `--bg: #1C1C1C`) — sono duplicati a mano nei due file JS che disegnano fuori dal CSS.
 
-## Limiti noti (MVP)
-- Reconnect via `cid` in `localStorage`: una scheda chiusa o un telefono riavviato ritrovano la sessione. Chiuso il processo, i voti spariscono (voluto); gli epiloghi già generati no, restano nei file.
-- Epilogo personale generato a fine capitolo 12. Senza `OPENROUTER_API_KEY` tutti ricevono uno dei 6 fallback pre-scritti — la serata regge comunque.
-- Nessun rate-limit sui voti (un voto per socket, sovrascrivibile). Adatto a una sala fidata, non a internet aperto.
+## Limiti noti
+- Reconnect via `cid` in `localStorage`: una scheda chiusa o un telefono riavviato ritrovano i propri voti. Chiuso il processo, spariscono tutti (voluto).
+- Nessun rate-limit sui voti (uno per socket, sovrascrivibile fino alla chiusura). Adatto a una sala fidata, non a internet aperto.
+- La chat non ha filtro automatico sulle parole: c'è un umano che approva, ed è più bravo di qualunque lista. Se il regista si distrae, però, non passa niente — è un tuo collo di bottiglia, non un bug.
+- Una sola sessione per processo: due sale insieme = due processi su due porte.
