@@ -1,8 +1,16 @@
 /* SIIDRO ICT Company Summit — brandboard del poster. Fondo antracite, blu ICT,
    panna; Barlow (grottesco da segnaletica: si legge da lontano) e Barlow
-   Condensed spaziato per le etichette, come «SUMMIT». Font da Google Fonts con
-   fallback di sistema: se la rete della sede blocca la CDN, la pagina resta leggibile. */
-@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700&display=swap");
+   Condensed spaziato per le etichette, come «SUMMIT». Font serviti dal server
+   (@fontsource in node_modules, niente CDN): in sede offline restano gli stessi. */
+@import url("/vendor/barlow/300.css");
+@import url("/vendor/barlow/400.css");
+@import url("/vendor/barlow/500.css");
+@import url("/vendor/barlow/600.css");
+@import url("/vendor/barlow/700.css");
+@import url("/vendor/barlow/800.css");
+@import url("/vendor/barlow-condensed/500.css");
+@import url("/vendor/barlow-condensed/600.css");
+@import url("/vendor/barlow-condensed/700.css");
 
 :root {
   --bg: #1C1C1C;              /* dominante (brand) */

@@ -104,10 +104,10 @@ interventi, non a essere letti come un documento.
   URL=https://summit.tuodominio.it DIRECTOR_TOKEN=xxx npm run loadtest -- 120
   ```
   - **2° argomento = secondi per fase** (lettura + finestra di voto). `0` = full speed. Con ritmo > 0 i voti arrivano scaglionati e sul proiettore si vedono le particelle migrare.
-  - **`SCENARIO=` forza l'esito**: una cifra per domanda votabile (oggi 11) = indice dell'opzione che deve vincere. Serve a vedere a schermo un risultato preciso senza sperarci.
+  - **`SCENARIO=` forza l'esito**: una cifra per domanda votabile (oggi 7) = indice dell'opzione che deve vincere. Serve a vedere a schermo un risultato preciso senza sperarci.
     ```bash
-    SCENARIO=00000000000 npm run loadtest -- 90   # tutti sulla prima opzione
-    SCENARIO=01230123012 npm run loadtest -- 90   # uno per opzione, a giro
+    SCENARIO=0000000 npm run loadtest -- 90       # tutti sulla prima opzione
+    SCENARIO=0123012 npm run loadtest -- 90       # uno per opzione, a giro
     ```
     Un indice fuori portata si arrotonda giù (le domande hanno da 2 a 4 opzioni).
   - Override fini: `READ_MS` e `VOTE_MS`, in millisecondi.
@@ -122,7 +122,27 @@ PORT=3000 npm start          # apri la porta 3000 nel firewall
 # proiettore → http://<ip-macchina>:3000/?role=main
 ```
 
-## Deploy — pubblico su internet (Linux + dominio + nginx + TLS)
+## Deploy — pubblico su internet con Docker (app + Caddy)
+Serve la macchina raggiungibile su 80/443, un record DNS `A` verso il suo IP e
+Docker con il plugin compose. Pubbliche sono **solo 80 e 443**: Caddy prende e
+rinnova da sé il certificato, redirige 80 → 443 e fa passare il WebSocket; la
+3000 resta nella rete interna di Docker.
+```bash
+git clone <repo> && cd siidro-interactive-app
+cp .env.example .env && nano .env    # DOMAIN e DIRECTOR_TOKEN obbligatori
+docker compose up -d --build
+# proiettore → https://<DOMAIN>/?role=main     regia → https://<DOMAIN>/?role=director&k=<token>
+```
+- **Una sola replica**: lo stato è nella memoria del processo, non si scala.
+- `docker compose restart app` (o `up -d` dopo aver toccato `.env`) **azzera la serata**, come `pm2 restart`.
+- I certificati stanno nel volume `caddy_data`: `down -v` li butta e al giro dopo si richiedono da capo (Let's Encrypt ha limiti di frequenza).
+
+**Aggiornare**:
+```bash
+git pull && docker compose up -d --build
+```
+
+## Deploy — pubblico su internet senza Docker (Linux + dominio + nginx + TLS)
 Serve la macchina raggiungibile su 80/443 e un record DNS `A` verso il suo IP.
 (Se non è raggiungibile — CGNAT, porte chiuse — `cloudflared tunnel --url
 http://localhost:3000` bypassa il NAT.)
@@ -168,8 +188,12 @@ sudo nginx -t && sudo systemctl reload nginx
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d summit.tuodominio.it
+sudo ufw allow OpenSSH          # prima di abilitare ufw, o si perde la sessione SSH
 sudo ufw allow 'Nginx Full'
+sudo ufw enable
 ```
+Il server ascolta su `0.0.0.0:3000`: **la 3000 non va aperta** nel firewall, se
+no l'app si raggiunge anche in HTTP in chiaro scavalcando nginx.
 
 **L'insidia è una sola:** senza le righe `Upgrade`/`Connection` nginx non fa
 l'upgrade di protocollo e Socket.IO cade in polling o si rompe sull'handshake.
@@ -186,7 +210,7 @@ pm2 restart <nome-pm2>      # necessario per server/… e dopo aver toccato .env
 - Un processo Node (Fastify + Socket.IO), stato **in memoria**, niente DB, niente disco: nomi e voti muoiono col processo. Un processo = una sala.
 - [`server/content.js`](./server/content.js) — tutti i testi, zero logica.
 - [`server/session.js`](./server/session.js) — lo stato autorevole. Non accumula: tiene `history` (un vincitore per domanda) e i voti di ciascuno, e **ricava tutto il resto a ogni vista**. Per questo *riapri voto* è un `pop` di `history`. Qui stanno anche i controlli della chat, lato server, qualunque cosa faccia il client.
-- [`server/index.js`](./server/index.js) — bootstrap, QR generato server-side, GSAP servito da `node_modules` (niente CDN: la rete della sede non è un requisito), gate della regia.
+- [`server/index.js`](./server/index.js) — bootstrap, QR generato server-side, GSAP e i font Barlow (`@fontsource`) serviti da `node_modules` (niente CDN: la rete della sede non è un requisito), gate della regia.
 - [`public/`](./public/) — tre pagine vanilla, particelle su Canvas 2D, transizioni GSAP, fondo a pioggia binaria in [`binary.svg`](./public/binary.svg), come il poster. Colori e font del brand (Barlow / Barlow Condensed) stanno in [`style.css`](./public/style.css) (`--accent: #4391FF`, `--bg: #1C1C1C`) — sono duplicati a mano nei due file JS che disegnano fuori dal CSS.
 
 ## Limiti noti

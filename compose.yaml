@@ -1,0 +1,41 @@
+# Deploy pubblico: app + Caddy (TLS automatico). Pubbliche solo 80 e 443;
+# la 3000 resta nella rete interna di Docker.
+#
+#   cp .env.example .env    # DOMAIN e DIRECTOR_TOKEN sono obbligatori qui
+#   docker compose up -d --build
+
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      PORT: "3000"            # la porta interna è fissa: Caddy punta ad app:3000
+    expose:
+      - "3000"
+    restart: unless-stopped
+    # una sola replica: lo stato della sala è nella memoria del processo
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2.10-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?imposta DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"         # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certificati: senza, a ogni riavvio si richiedono da capo
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+docs
+loadtest
+*.md
+*.log
+prova.json
+Caddyfile
+compose.yaml

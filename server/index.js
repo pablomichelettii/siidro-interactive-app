@@ -20,6 +20,12 @@ await app.register(fastifyStatic, {
   root: path.join(__dirname, "..", "node_modules", "gsap", "dist"),
   prefix: "/vendor/gsap/", decorateReply: false
 });
+// Barlow self-hosted, stessa ragione: la CDN dei font non è un requisito
+for (const font of ["barlow", "barlow-condensed"])
+  await app.register(fastifyStatic, {
+    root: path.join(__dirname, "..", "node_modules", "@fontsource", font),
+    prefix: `/vendor/${font}/`, decorateReply: false
+  });
 
 // QR generato server-side (offline-safe): dark su bianco per la scansione
 app.get("/qr", async (req, reply) => {

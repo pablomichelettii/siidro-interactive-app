@@ -1,0 +1,6 @@
+# Caddy prende e rinnova da sé il certificato per {$DOMAIN}, redirige 80 → 443
+# e fa passare l'upgrade WebSocket di Socket.IO senza configurazione.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy app:3000
+}

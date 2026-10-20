@@ -2,7 +2,7 @@
   "name": "siidro-interactive-app",
   "version": "0.1.0",
   "type": "module",
-  "description": "SIIDRO ICT Company Summit \u2014 app interattiva del tavolo: esempi votati dalla sala e chat moderata",
+  "description": "SIIDRO ICT Company Summit — app interattiva del tavolo: esempi votati dalla sala e chat moderata",
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node server/session.test.js",
@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@fastify/static": "^7.0.4",
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
     "fastify": "^4.28.1",
     "gsap": "^3.15.0",
     "qrcode": "^1.5.4",
