@@ -48,9 +48,9 @@ Tre superfici, stesso server (host = IP LAN della macchina in sala):
 
 ## Il contenuto: dove si cambiano le domande
 Tutto in [`server/content.js`](./server/content.js), dati e basta, nessuna logica.
-L'array `ESEMPI` oggi contiene 14 slide, di cui **11 votabili**: apertura, tre
-blocchi da tre domande (ciascuno preceduto da una slide di stacco con la
-macro-domanda), chiusura.
+L'array `ESEMPI` oggi contiene 7 domande, **tutte votabili**: software
+replicabile, responsabilità del codice, ruoli e fattore umano, modelli di
+business.
 
 Campi di una slide:
 
@@ -63,7 +63,6 @@ Campi di una slide:
 | `durata_voto_sec` | `0` = nessun timer, chiude solo il regista |
 | `beats` | facoltativo: stringa = paragrafo, `{ sig }` = riquadro, `{ counter }` = numero che sale. **Senza `beats` il proiettore legge la domanda** |
 | `q` + `opzioni` | da 2 a 4 opzioni, `tag` unico dentro la domanda. Nessuna è quella giusta |
-| `guadagno` / `costo_nascosto` | facoltativi, per opzione: se ci sono, compaiono sotto l'opzione e alla rivelazione |
 | `nota` | **solo cruscotto regia**: la lettura della risposta. Non si proietta mai |
 | `chiusura` | la riga che chiude la rivelazione sul proiettore |
 
@@ -188,7 +187,7 @@ pm2 restart <nome-pm2>      # necessario per server/… e dopo aver toccato .env
 - [`server/content.js`](./server/content.js) — tutti i testi, zero logica.
 - [`server/session.js`](./server/session.js) — lo stato autorevole. Non accumula: tiene `history` (un vincitore per domanda) e i voti di ciascuno, e **ricava tutto il resto a ogni vista**. Per questo *riapri voto* è un `pop` di `history`. Qui stanno anche i controlli della chat, lato server, qualunque cosa faccia il client.
 - [`server/index.js`](./server/index.js) — bootstrap, QR generato server-side, GSAP servito da `node_modules` (niente CDN: la rete della sede non è un requisito), gate della regia.
-- [`public/`](./public/) — tre pagine vanilla, particelle su Canvas 2D, transizioni GSAP, fondo a circuiti in [`circuit.svg`](./public/circuit.svg). I colori del brand stanno in [`style.css`](./public/style.css) (`--accent: #4391FF`, `--bg: #1C1C1C`) — sono duplicati a mano nei due file JS che disegnano fuori dal CSS.
+- [`public/`](./public/) — tre pagine vanilla, particelle su Canvas 2D, transizioni GSAP, fondo a pioggia binaria in [`binary.svg`](./public/binary.svg), come il poster. Colori e font del brand (Barlow / Barlow Condensed) stanno in [`style.css`](./public/style.css) (`--accent: #4391FF`, `--bg: #1C1C1C`) — sono duplicati a mano nei due file JS che disegnano fuori dal CSS.
 
 ## Limiti noti
 - Reconnect via `cid` in `localStorage`: una scheda chiusa o un telefono riavviato ritrovano i propri voti. Chiuso il processo, spariscono tutti (voluto).

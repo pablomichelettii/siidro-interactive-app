@@ -131,7 +131,9 @@ export class Session {
     if (this.phase !== "voting" || !cid) return;
     if (!this.chapter.opzioni.some(o => o.tag === option)) return;
     this.currentVotes.set(cid, option);   // last-write-wins su (sessione, esempio)
-    this.io.to("main").emit("main:particle", { cid, tag: option });
+    // a live spento la particella dice CHE hai votato, non COSA: altrimenti la
+    // forbice si leggerebbe dalle particelle prima della chiusura
+    this.io.to("main").emit("main:particle", { cid, tag: this.chapter.mostra_live ? option : null });
     // la sala vede la forbice solo dove l'esempio lo prevede; la regia sempre
     this.io.to("main").emit("main:tally", this.tallyPerSala());
     this.io.to("director").emit("director:tally", this.tally());
@@ -331,9 +333,9 @@ export class Session {
     };
   }
 
-  // Cosa ha scelto la sala nel voto appena chiuso: l'opzione vinta, il suo
-  // costo nascosto, la forbice completa — che si mostra sempre qui, anche dove
-  // era spenta in diretta — e la chiusura scritta, se c'è.
+  // Cosa ha scelto la sala nel voto appena chiuso: l'opzione vinta, la
+  // forbice completa — che si mostra sempre qui, anche dove era spenta in
+  // diretta — e la chiusura scritta, se c'è.
   revealView() {
     const ultimo = this.history[this.history.length - 1];
     if (!ultimo) return null;
@@ -342,7 +344,6 @@ export class Session {
     return {
       winner: ultimo.winner,
       label: scelta ? scelta.label : null,
-      costo: scelta ? scelta.costo_nascosto : null,
       conteggi: ultimo.conteggi,
       opts: ch.opzioni,
       chiusura: ch.chiusura || null
@@ -393,8 +394,8 @@ export class Session {
     if (!p) return null;
     const scelte = [];
     let minoranza = 0;
-    // Ogni scelta porta con sé l'esempio, cosa ha scelto DAVVERO e cosa
-    // costava: un `deepfake: denuncio` non dice niente a chi lo rilegge.
+    // Ogni scelta porta con sé l'esempio e cosa ha scelto DAVVERO: un
+    // `deepfake: denuncio` non dice niente a chi lo rilegge.
     for (const h of this.history) {
       const voto = p.votes.get(h.id) || null;
       const ch = ESEMPI.find(e => e.id === h.id);
@@ -403,7 +404,6 @@ export class Session {
         id: h.id, occhiello: ch.occhiello, titolo: ch.titolo,
         voto,
         scelta: opt ? opt.label : null,
-        costo: opt ? opt.costo_nascosto : null,
         vinse: h.winnerLabel,
         minoranza: !!voto && voto !== h.winner
       });

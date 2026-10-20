@@ -1,7 +1,8 @@
-/* SIIDRO ICT Company Summit — brandboard. Fondo antracite, accento blu ICT,
-   sans geometrico. Font da Google Fonts con fallback di sistema: se la rete
-   della sede blocca la CDN, Helvetica/system-ui tengono la pagina leggibile. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap");
+/* SIIDRO ICT Company Summit — brandboard del poster. Fondo antracite, blu ICT,
+   panna; Barlow (grottesco da segnaletica: si legge da lontano) e Barlow
+   Condensed spaziato per le etichette, come «SUMMIT». Font da Google Fonts con
+   fallback di sistema: se la rete della sede blocca la CDN, la pagina resta leggibile. */
+@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700&display=swap");
 
 :root {
   --bg: #1C1C1C;              /* dominante (brand) */
@@ -24,8 +25,9 @@
   --pole-3: #2D63B8;
   --pole-4: #8E8E8E;
 
-  --font-display: "Inter", "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
-  --font-text: "Inter", "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
+  --font-display: "Barlow", "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
+  --font-text: "Barlow", "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
+  --font-cond: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
   --font-mono: "SF Mono", Menlo, Consolas, monospace;
 
   --sp-xs: 8px; --sp-sm: 16px; --sp-md: 32px; --sp-lg: 48px; --sp-xl: 80px;
@@ -33,16 +35,16 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-/* Fondo: tracce da circuito (tile SVG, alfa bassa) sotto un vignettato che
-   scurisce i bordi. Il tile scorre lentissimo — a 90 secondi a giro nessuno lo
-   "vede" muoversi, ma lo schermo smette di sembrare una slide ferma. */
+/* Fondo: la pioggia binaria del poster (tile SVG, alfa bassa) sotto un
+   vignettato che scurisce i bordi. Scende lentissima — a 90 secondi a tile
+   nessuno la "vede" muoversi, ma lo schermo smette di sembrare una slide ferma. */
 body {
   background-color: var(--bg);
   background-image:
     radial-gradient(ellipse at 50% 0%, var(--accent-a) 0%, transparent 55%),
-    url("circuit.svg"),
+    url("binary.svg"),
     radial-gradient(ellipse at 50% 40%, var(--bg-a) 0%, var(--bg-deep) 100%);
-  background-size: 140% 90%, 320px 320px, cover;
+  background-size: 140% 90%, 360px 480px, cover;
   background-repeat: no-repeat, repeat, no-repeat;
   background-attachment: fixed;
   animation: deriva 90s linear infinite;
@@ -54,17 +56,15 @@ body {
 }
 
 @keyframes deriva {
-  to { background-position: 0 0, 320px 320px, 0 0; }
+  to { background-position: 0 0, 0 480px, 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { body { animation: none; } }
 
 .display { font-family: var(--font-display); font-weight: 800; letter-spacing: 0.04em; line-height: 1.1; text-transform: uppercase; }
-.year { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.22em; font-size: 0.8rem; color: var(--accent); text-transform: uppercase; }
+.year { font-family: var(--font-cond); font-weight: 600; letter-spacing: 0.28em; font-size: 0.95rem; color: var(--accent); text-transform: uppercase; }
 .muted { color: var(--muted); }
 .hidden { display: none !important; }
 
-h1.hero { font-family: var(--font-display); font-weight: 800; letter-spacing: 0.02em; line-height: 0.95;
-  font-size: clamp(3.5rem, 8vw, 7rem); margin: 0.1em 0; text-transform: uppercase; }
 h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.02em;
   font-size: clamp(1.75rem, 4vw, 3.5rem); line-height: 1.05; margin: 0.2em 0 0.5em; text-transform: uppercase; }
 

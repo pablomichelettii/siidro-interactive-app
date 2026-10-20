@@ -1,0 +1,443 @@
+const domande = [
+  {
+    id: "apertura-intro",
+    occhiello: "Apertura",
+    titolo: "Il codice costa quasi zero. E adesso?",
+    votabile: false,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "",
+    opzioni: [],
+    nota: "Slide di contesto. Leggere il riquadro, lasciare scorrere il contatore e poi passare subito al voto, prima di dare altri dati.",
+    beats: [
+      { sig: "Nella prima settimana di febbraio 2026 il mercato ha cancellato oltre 1.000 miliardi di dollari di capitalizzazione dai titoli software. Wall Street l'ha chiamata «SaaSpocalypse»." },
+      { counter: { to: 1000, unit: "mld $", label: "valore bruciato dai titoli software in 7 giorni (Forrester, febbraio 2026)" } },
+      "Quattro mesi dopo l'ETF software IGV aveva recuperato il 13% e Thoma Bravo dichiarava finita l'apocalisse. Chi ha ragione? Votate prima di sentire i dati."
+    ]
+  },
+  {
+    id: "scommessa-2030",
+    occhiello: "Apertura · La scommessa",
+    titolo: "100 euro sul 2030",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Dovete puntare 100 euro della vostra azienda su un solo scenario al 2030. Dove li mettete?",
+    opzioni: [
+      {
+        tag: "COMMODITY",
+        label: "Il codice diventa una commodity: vince chi possiede dati e processi del cliente, non il software",
+        guadagno: "Posizionamento su asset difficili da copiare: dati, integrazioni, contratti.",
+        costo_nascosto: "Per molte software house i dati sono del cliente: scommettete su un asset che non possedete."
+      },
+      {
+        tag: "USA E GETTA",
+        label: "Ogni azienda si scrive il suo software: noi vendiamo la fabbrica, non il prodotto",
+        guadagno: "Cavalcate il trend: il 32% delle organizzazioni ha già rinunciato a comprare almeno un software per costruirselo (McKinsey).",
+        costo_nascosto: "La stessa fabbrica la vendono a token Anthropic, OpenAI e Microsoft: competete con chi vi fornisce gli strumenti."
+      },
+      {
+        tag: "A RISULTATO",
+        label: "Il software resta, ma si paga solo a risultato: chi non sa misurare l'outcome muore",
+        guadagno: "Prezzo slegato dalle ore e allineato al valore per il cliente.",
+        costo_nascosto: "Vi accollate il rischio operativo del cliente: se il suo processo è rotto, non vi paga."
+      },
+      {
+        tag: "HYPE",
+        label: "È un ciclo di hype: nel 2030 vendiamo licenze e giornate come oggi, con margini un po' più bassi",
+        guadagno: "Nessuna ristrutturazione costosa; Adobe e Accenture continuano a crescere.",
+        costo_nascosto: "Se sbagliate, ve ne accorgete quando il multiplo si è già dimezzato e i clienti hanno già internalizzato."
+      }
+    ],
+    nota: "Domanda specchio della chiusura: salvare il risultato. Se HYPE supera il 30%, la sala è più scettica dei mercati: usarlo come provocazione nel blocco 1. Se vince USA E GETTA, ricordare che è la scommessa più esposta alla concorrenza dei laboratori AI.",
+    beats: []
+  },
+  {
+    id: "blocco-1-intro",
+    occhiello: "Blocco 1",
+    titolo: "La fine del software generalista",
+    votabile: false,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "",
+    opzioni: [],
+    nota: "Introduce la tesi 1. Sottolineare che il dato McKinsey misura acquisti mancati, non contratti disdetti.",
+    beats: [
+      { sig: "Il 32% delle organizzazioni ha rinunciato ad acquistare almeno un software o una funzionalità perché ha potuto costruirla internamente con agenti di coding (McKinsey, State of AI 2026, 1.719 intervistati)." },
+      { counter: { to: 32, unit: "%", label: "organizzazioni che hanno già detto «no grazie, me lo faccio da solo»" } },
+      "Retool, su 817 builder: il 35% ha già sostituito almeno un SaaS con uno strumento costruito in casa, il 60% ha costruito strumenti fuori dal controllo dell'IT."
+    ]
+  },
+  {
+    id: "generalizzare-o-scrivere",
+    occhiello: "Blocco 1 · Generalizzare non serve più?",
+    titolo: "Tre settimane contro sei",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Un cliente vi chiede di coprire un suo processo. Scriverlo su misura con l'AI: 3 settimane. Adattare il vostro prodotto: 6 settimane. Il cliente paga uguale. Cosa fate?",
+    opzioni: [
+      {
+        tag: "SU MISURA",
+        label: "Lo scrivo su misura: il prodotto generalista era una tassa sulla lentezza",
+        guadagno: "Consegna in metà tempo, aderenza totale al processo, margine immediato.",
+        costo_nascosto: "Ogni cliente diventa una codebase separata da manutenere: avete ricostruito una software house a progetto, con i suoi margini."
+      },
+      {
+        tag: "PRODOTTO",
+        label: "Adatto il prodotto anche se ci metto il doppio: è l'unica cosa che vale in un'exit",
+        guadagno: "Riuso, roadmap unica, un asset valutabile.",
+        costo_nascosto: "Perdete la gara contro chi consegna in 3 settimane, e il multiplo che state proteggendo è sceso da 5,7x a 3,2x i ricavi in un anno."
+      },
+      {
+        tag: "NUCLEO",
+        label: "Genero su misura sopra un nucleo mio di dati e regole, e accetto che metà del team lavori su cose che nessun cliente ha chiesto",
+        guadagno: "La velocità del su misura più un asset che si accumula nel tempo.",
+        costo_nascosto: "Il nucleo è esattamente la generalizzazione che volevate evitare: assorbe i senior migliori e non si fattura."
+      },
+      {
+        tag: "RIFIUTO",
+        label: "Rifiuto: il su misura a 3 settimane è un mercato in cui nessuno guadagnerà",
+        guadagno: "Focus e prezzo difeso.",
+        costo_nascosto: "Il cliente lo farà fare a qualcun altro, o al suo ufficio operations con un agente, e non tornerà."
+      }
+    ],
+    nota: "La tesi 1 in forma pura. Se vince SU MISURA, chiedere chi manuterrà quaranta codebase nel 2028 (aggancio alla domanda successiva). Se vince NUCLEO, far notare che è la generalizzazione rientrata dalla finestra. PRODOTTO è la risposta da investitore: confrontarla con i multipli.",
+    beats: [
+      { counter: { to: 44, unit: "%", label: "calo in un anno del multiplo mediano EV/ricavi dei SaaS quotati (Software Equity Group: da 5,7x a 3,2x)" } }
+    ]
+  },
+  {
+    \\poco stimolante, puó gia succerde e succedeva senza ai, migliorare la riflession
+    id: "il-tool-del-cliente-si-rompe",
+    occhiello: "Blocco 1 · Shadow IT",
+    titolo: "Chiamano voi",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Il vostro miglior cliente ha sostituito un vostro modulo con un tool che il suo ufficio operations si è fatto con un agente. Sei mesi dopo si rompe a chiusura trimestre e chiamano voi. Cosa fate?",
+    opzioni: [
+      {
+        tag: "TARIFFA PIENA",
+        label: "Lo sistemo a tariffa piena, urgenza inclusa: è la mia nuova linea di business",
+        guadagno: "Ricavo immediato e posizionamento da pronto soccorso.",
+        costo_nascosto: "Diventate responsabili di codice che non avete scritto, e la prossima volta non potrete rifiutare."
+      },
+      {
+        tag: "GRATIS",
+        label: "Lo sistemo gratis e ne approfitto per riprendermi il modulo",
+        guadagno: "Fiducia e ritorno del contratto.",
+        costo_nascosto: "Insegnate al mercato che il vostro intervento d'emergenza non costa niente."
+      },
+      {
+        tag: "NON FIRMO",
+        label: "Rifiuto: non metto la mia firma su codice che non ho scritto né revisionato",
+        guadagno: "Coerenza e nessun rischio legale.",
+        costo_nascosto: "Il cliente impara a fare senza di voi anche nell'emergenza."
+      },
+      {
+        tag: "CERTIFICO",
+        label: "Propongo di adottarlo e governarlo io: mi faccio pagare per certificare il software degli altri",
+        guadagno: "Un prodotto nuovo: governance, sicurezza e collaudo del software scritto dai clienti.",
+        costo_nascosto: "Smettete di essere chi costruisce e diventate chi controlla: è un'altra azienda, con altre competenze."
+      }
+    ],
+    nota: "Dove va il valore se il cliente costruisce da sé. CERTIFICO è la risposta più strategica e la più costosa da realizzare: chiedere a chi l'ha votata se ha già un'offerta a listino.",
+    beats: [
+      "Retool 2026: il 60% dei builder ha creato strumenti, workflow o automazioni fuori dal controllo dell'IT nell'ultimo anno."
+    ]
+  },
+  {
+    id: "dove-va-il-valore",
+    occhiello: "Blocco 1 · Contro-tesi",
+    titolo: "Il software vale meno o vale altrove?",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Le offerte di lavoro per sviluppatori sono tornate a crescere (+11% anno su anno a inizio 2026, dati Indeed) e il software in Italia cresce del 4,1%. Nei prossimi cinque anni il valore del software sta...",
+    opzioni: [
+      {
+        tag: "DEFLAZIONE",
+        label: "Calando: più software si produce, meno vale ogni riga e ogni licenza",
+        guadagno: "Lettura coerente con i multipli SaaS quasi dimezzati.",
+        costo_nascosto: "Se è vero, il vostro listino scende ogni anno e la crescita dipende solo dai volumi."
+      },
+      {
+        tag: "JEVONS",
+        label: "Crescendo: quando il software costa poco se ne compra molto di più",
+        guadagno: "Spiega perché domanda di sviluppatori e mercato crescono insieme all'AI.",
+        costo_nascosto: "Jevons vale per il mercato, non per la singola azienda: si può crescere come settore e fallire come impresa."
+      },
+      {
+        tag: "AI LAB",
+        label: "Spostandosi verso laboratori AI e hyperscaler: noi diventiamo rivenditori di token",
+        guadagno: "Lucidità sulla catena del valore.",
+        costo_nascosto: "Se ci credete, il vostro margine è una variabile decisa a Seattle e San Francisco."
+      },
+      {
+        tag: "CLIENTE",
+        label: "Spostandosi verso i clienti: chi possiede il processo cattura il valore, chi scrive il codice no",
+        guadagno: "Spinge verso consulenza di processo e verticalizzazione.",
+        costo_nascosto: "Il cliente che cattura il valore è lo stesso che vi chiederà di abbassare il prezzo."
+      }
+    ],
+    nota: "Ponte verso il blocco 2. JEVONS è la risposta consolatoria più diffusa tra i CEO: se vince, chiedere quanti in sala hanno visto crescere il proprio listino prezzi, non solo il fatturato.",
+    beats: []
+  },
+  {
+    id: "blocco-2-intro",
+    occhiello: "Blocco 2",
+    titolo: "Ore uomo, cottimo e chi si prende il valore",
+    votabile: false,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "",
+    opzioni: [],
+    nota: "Introduce la tesi 2. Il punto: il cottimo esiste già, ma lo incassano i vendor di agenti.",
+    beats: [
+      { sig: "Accenture, anno fiscale 2026: il lavoro a prezzo fisso, che include i contratti a risultato, supera il 65% delle prenotazioni. La CEO Julie Sweet ha detto che i prezzi sono rimasti stabili nell'anno ma sono scesi in molte aree nel quarto trimestre." },
+      { counter: { to: 65, unit: "%", label: "prenotazioni Accenture a prezzo fisso o a risultato (FY2026)" } },
+      "Intanto Intercom vende il suo agente Fin a 0,99 dollari a risoluzione e Salesforce Agentforce a 0,10 dollari per azione."
+    ]
+  },
+  {
+    id: "contratto-senza-giornate",
+    occhiello: "Blocco 2 · Lavorare a cottimo?",
+    titolo: "Il contratto senza giornate",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Il vostro cliente più grande vi propone, dal 2027: zero giornate, pagamento solo per funzionalità rilasciata in produzione e accettata. Firmate?",
+    opzioni: [
+      {
+        tag: "FIRMO",
+        label: "Firmo subito: con l'AI il cottimo rende più delle giornate",
+        guadagno: "Catturate tutta la produttività che oggi regalate fatturando a ore.",
+        costo_nascosto: "Specifiche sbagliate, change request e ritardi del cliente diventano costi vostri."
+      },
+      {
+        tag: "FIRMO SE",
+        label: "Firmo solo se l'accettazione la definisco io e posso rifiutare i change non a listino",
+        guadagno: "Cottimo con le spalle coperte.",
+        costo_nascosto: "È il contratto che quasi nessun ufficio acquisti firmerà: rischiate di restare a giornate per default."
+      },
+      {
+        tag: "SCONTO",
+        label: "Contropropongo giornate scontate del 25%: margine più basso ma certo",
+        guadagno: "Prevedibilità e nessun rischio di delivery.",
+        costo_nascosto: "Confermate al cliente che l'ora è la vostra unità di valore proprio mentre l'ora vale sempre meno."
+      },
+      {
+        tag: "NON FIRMO",
+        label: "Non firmo: a cottimo pago io il prezzo della disorganizzazione del cliente",
+        guadagno: "Margine protetto sui clienti disordinati.",
+        costo_nascosto: "Se un concorrente firma, il cliente scopre quanto costa davvero una funzionalità e il vostro listino a giornata diventa indifendibile."
+      }
+    ],
+    nota: "Dilemma diretto della tesi 2. Se vince SCONTO, la sala difende l'ora: rilanciare con il dato Accenture (oltre 65% a prezzo fisso). Se vince FIRMO, chiedere chi ha uno storico per stimare il costo di una funzionalità: senza dati il cottimo è azzardo.",
+    beats: []
+  },
+  {
+    id: "sei-settimane-fatturate-dieci",
+    occhiello: "Blocco 2 · Chi si tiene il valore",
+    titolo: "Sei settimane, fatturate dieci",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Il vostro team consegna in 6 settimane un progetto venduto a corpo per 10. Il cliente non lo sa. Cosa fate?",
+    opzioni: [
+      {
+        tag: "FATTURO 10",
+        label: "Fatturo 10: il prezzo era sul valore, non sul tempo",
+        guadagno: "Margine pieno, coerente con la logica a corpo.",
+        costo_nascosto: "Al prossimo rinnovo il cliente lo scoprirà, dai log o da un ex dipendente, e rinegozierà tutto al ribasso."
+      },
+      {
+        tag: "DICHIARO",
+        label: "Lo dico e fatturo 7: la fiducia vale più del margine",
+        guadagno: "Relazione di lungo periodo e una reputazione rara.",
+        costo_nascosto: "Avete appena fissato il nuovo prezzo di mercato, per voi e per i vostri concorrenti."
+      },
+      {
+        tag: "REGALO",
+        label: "Fatturo 10 e uso le 4 settimane per aggiungere funzionalità non richieste",
+        guadagno: "Il cliente percepisce più valore, voi tenete il prezzo.",
+        costo_nascosto: "Più codice da manutenere e un'aspettativa che non potrete rispettare la volta successiva."
+      },
+      {
+        tag: "RALLENTO",
+        label: "Consegno alla settimana 9: nessuno deve sapere quanto siamo diventati veloci",
+        guadagno: "Listino e mercato protetti.",
+        costo_nascosto: "Il primo concorrente che consegna in 6 settimane lo farà sapere a tutti."
+      }
+    ],
+    nota: "Sostituisce la domanda sul valore liberato del 40% rendendola personale ed etica. RALLENTO raccoglierà pochi voti dichiarati e molti pensieri: se supera il 15% è un dato enorme, da commentare apertamente.",
+    beats: []
+  },
+  {
+    id: "nuova-unita-di-prezzo",
+    occhiello: "Blocco 2 · L'unità di misura",
+    titolo: "Cosa vendete, se non vendete ore?",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Domani dovete cambiare l'unità di misura con cui fatturate il vostro servizio principale. Quale scegliete?",
+    opzioni: [
+      {
+        tag: "RISOLUZIONE",
+        label: "A risultato: un prezzo per ticket risolto o processo completato (modello Intercom Fin, 0,99 $)",
+        guadagno: "Prezzo legato al valore percepito dal cliente.",
+        costo_nascosto: "Chi decide cosa è risolto? Fin conta come risolta anche la conversazione in cui il cliente smette di chiedere aiuto: preparatevi alle contestazioni."
+      },
+      {
+        tag: "AZIONE",
+        label: "Ad azione dell'agente (modello Salesforce Agentforce, 0,10 $ per azione)",
+        guadagno: "Misurabile, scalabile, facile da automatizzare.",
+        costo_nascosto: "Il cliente ottimizzerà per ridurre le azioni e i vostri ricavi diventano imprevedibili come una bolletta."
+      },
+      {
+        tag: "CAPACITÀ",
+        label: "A capacità: canone mensile per un team ibrido di persone e agenti",
+        guadagno: "Ricavo ricorrente e prevedibile.",
+        costo_nascosto: "È il body rental con un nome nuovo: al primo confronto il cliente divide il canone per le teste."
+      },
+      {
+        tag: "GIORNATA 3X",
+        label: "Resto a giornata, ma la giornata di un senior con agenti costa il triplo",
+        guadagno: "Nessun cambio di modello, seniority valorizzata.",
+        costo_nascosto: "Gli uffici acquisti che confrontano tariffe per profilo scartano la giornata a 3x al primo filtro."
+      }
+    ],
+    nota: "Tre modelli reali e uno di casa nostra. CAPACITÀ sarà probabilmente la più votata: far leggere il suo costo nascosto. GIORNATA 3X è la scelta di chi crede nella seniority come moltiplicatore.",
+    beats: []
+  },
+  {
+    id: "sviluppatori-a-cottimo",
+    occhiello: "Blocco 2 · Il cottimo in casa",
+    titolo: "E i vostri sviluppatori?",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Se vendete a risultato, pagate a risultato? Introdurreste una quota variabile della retribuzione degli sviluppatori legata all'output rilasciato, non alle ore?",
+    opzioni: [
+      {
+        tag: "SÌ, 30%",
+        label: "Sì, almeno il 30% variabile e individuale: se vendo a cottimo, pago a cottimo",
+        guadagno: "Prezzo e costo finalmente allineati.",
+        costo_nascosto: "Ottenete esattamente ciò che misurate: più funzionalità, più codice duplicato, meno refactoring."
+      },
+      {
+        tag: "TEAM",
+        label: "Sì, ma solo a livello di team e di cliente, mai individuale",
+        guadagno: "Incentivo senza distruggere la collaborazione.",
+        costo_nascosto: "I migliori capiscono di essere sottopagati rispetto al team e se ne vanno."
+      },
+      {
+        tag: "NO",
+        label: "No: l'output di uno sviluppatore è truccabile, e contratti e cultura italiani non lo reggono",
+        guadagno: "Pace sociale e retention.",
+        costo_nascosto: "Il vostro costo resta orario mentre il ricavo smette di esserlo: il margine assorbe tutta la differenza."
+      },
+      {
+        tag: "AL CONTRARIO",
+        label: "No: premio chi elimina codice e dice no alle funzionalità inutili",
+        guadagno: "Incentivo a qualità e manutenibilità.",
+        costo_nascosto: "Difficile da misurare e impossibile da spiegare a un cliente che paga a funzionalità."
+      }
+    ],
+    nota: "La tesi 2 vista dall'interno: cottimo verso i clienti senza cottimo verso i dipendenti apre una forbice che finisce sul margine. Il dato TCS serve da contesto, non da risposta: il CEO attribuisce i tagli a disallineamento di competenze, non all'AI.",
+    beats: [
+      { counter: { to: 12261, unit: "", label: "uscite annunciate da TCS a luglio 2025, soprattutto middle e senior management (il 2% di 613.069 dipendenti)" } }
+    ]
+  },
+  {
+    id: "blocco-3-intro",
+    occhiello: "Blocco 3",
+    titolo: "Cosa si paga quando il codice non costa più niente",
+    votabile: false,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "",
+    opzioni: [],
+    nota: "Introduce la tesi 3. Il paradosso da far sentire: ricavi in crescita, titolo in caduta, concorrente gratuito.",
+    beats: [
+      { sig: "Adobe, terzo trimestre fiscale 2026: ricavi 6,76 miliardi di dollari, +13%. Eppure il 12 ottobre 2026 il titolo era in calo del 31% da inizio anno e trattava a 13,3 volte gli utili, contro una mediana quinquennale di 37,2." },
+      { counter: { to: 13, unit: "%", label: "crescita dei ricavi Adobe nel Q3 FY2026" } },
+      "Nel frattempo Canva ha reso Affinity, l'alternativa a Photoshop, Illustrator e InDesign, gratis per sempre (ottobre 2025)."
+    ]
+  },
+  {
+    id: "il-clone-nel-cassetto",
+    occhiello: "Blocco 3 · La clean room vibecodata",
+    titolo: "Il clone nel cassetto",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "Un vostro team in 4 settimane ha vibecodato un clone del software che vi costa di più in licenze. Copre il 90% di ciò che usate. Cosa ne fate?",
+    opzioni: [
+      {
+        tag: "DISDICO",
+        label: "Disdico le licenze e passo al clone",
+        guadagno: "Risparmio immediato sulla voce di costo più alta.",
+        costo_nascosto: "Da domani siete il vendor di voi stessi: aggiornamenti, sicurezza, formati, formazione dei nuovi assunti."
+      },
+      {
+        tag: "LEVA",
+        label: "Lo tengo nel cassetto e lo uso per rinegoziare il contratto",
+        guadagno: "Sconto senza rischio operativo.",
+        costo_nascosto: "Funziona una volta sola, e il vendor lo sa: il prossimo contratto avrà clausole più dure."
+      },
+      {
+        tag: "LO VENDO",
+        label: "Lo trasformo in prodotto e lo vendo ai clienti del vendor",
+        guadagno: "Un nuovo business con un mercato già educato.",
+        costo_nascosto: "Entrate in guerra legale e commerciale con un gigante, con un prodotto che copre il 90% e un brand che copre lo 0%."
+      },
+      {
+        tag: "LO BUTTO",
+        label: "Lo butto: il 10% che manca è esattamente ciò per cui pago",
+        guadagno: "Lucidità su dove sta il valore.",
+        costo_nascosto: "Avete appena ammesso che il vostro prodotto, per i vostri clienti, potrebbe valere quello stesso 10%."
+      }
+    ],
+    nota: "La tesi 3 nella forma più concreta. LEVA è la risposta cinica e probabilmente vincente: farlo notare. LO BUTTO è la più onesta: girarla subito alla sala chiedendo qual è il loro 10%.",
+    beats: []
+  },
+  {
+    id: "codice-senza-autore",
+    occhiello: "Blocco 3 · Il codice di nessuno",
+    titolo: "Di chi è il codice che non avete scritto?",
+    votabile: true,
+    mostra_live: false,
+    durata_voto_sec: 60,
+    q: "La legge italiana sull'AI (L. 132/2025) tutela solo le opere «dell'ingegno umano». Se l'80% del vostro codice lo scrive un agente, il vostro asset principale fra cinque anni sarà...",
+    opzioni: [
+      {
+        tag: "CODICE",
+        label: "Ancora il codice: documenteremo l'apporto umano (architettura, prompt, revisione)",
+        guadagno: "Patrimonio tutelato e valutabile in caso di exit.",
+        costo_nascosto: "Burocrazia della prova di autorialità su ogni commit, senza certezza su dove un giudice metterà la soglia."
+      },
+      {
+        tag: "DATI",
+        label: "I dati e i contratti con i clienti, non il codice",
+        guadagno: "Un asset reale e difendibile.",
+        costo_nascosto: "Spesso i dati sono del cliente: è un asset in affitto."
+      },
+      {
+        tag: "PERSONE",
+        label: "Le persone e il know-how di dominio: il codice è un sottoprodotto",
+        guadagno: "Coerente con un mondo in cui il codice si genera.",
+        costo_nascosto: "Le persone escono la sera: è un asset che passa al concorrente con un'offerta migliore."
+      },
+      {
+        tag: "FIRMA",
+        label: "La firma: vendiamo responsabilità, garanzia e conformità, non righe di codice",
+        guadagno: "È ciò che i clienti non possono vibecodare.",
+        costo_nascosto: "Responsabilità significa assicurazioni, certificazioni e contenziosi: un altro mestiere, con altri margini."
+      }
+    ],
+    nota: "Chiude il blocco 3 e prepara la chiusura. FIRMA è la risposta più vicina al modello Adobe Firefly (indennizzo IP): se vince, chiedere chi ha già un'offerta con garanzia contrattuale sul codice generato.",
+    beats: []
+  },
+];

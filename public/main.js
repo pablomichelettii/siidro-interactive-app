@@ -3,7 +3,7 @@
 const socket = io({ query: { role: "main" } });
 // I colori dei poli, nell'ordine delle opzioni (brandboard: --pole-1..4).
 // Duplicati qui perché il canvas non legge le custom properties del CSS.
-const POLI = ["#4391FF", "#F0EBE1", "#2D63B8", "#8E8E8E"], WHITE = "rgba(240,235,225,0.65)";
+const POLI = ["#4391FF", "#F0EBE1", "#2D63B8", "#8E8E8E"], WHITE = "rgba(240,235,225,0.65)", ACCENT = "#4391FF";
 const $ = (id) => document.getElementById(id);
 const G = window.gsap;
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -31,7 +31,8 @@ function spawn() {
   const a = Math.random() * Math.PI * 2, s = 0.4 + Math.random() * 0.5;
   return {
     x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-    vx: Math.cos(a) * s, vy: Math.sin(a) * s, target: null, spin: Math.random() < 0.5 ? -1 : 1, color: WHITE, r: 4 + Math.random() * 2
+    vx: Math.cos(a) * s, vy: Math.sin(a) * s, target: null, spin: Math.random() < 0.5 ? -1 : 1, color: WHITE, r: 4 + Math.random() * 2,
+    a: 1, ping: 0, voted: false
   };
 }
 function ensure(cid) { if (!particles.has(cid)) particles.set(cid, spawn()); }
@@ -41,7 +42,22 @@ function reconcile(cids) {
   cids.forEach(ensure);
 }
 function setOrbit(p, tag) { p.target = tag; p.spin = Math.random() < 0.5 ? -1 : 1; p.color = coloreTag.get(tag) || WHITE; }
-function clearOrbits() { for (const p of particles.values()) { p.target = null; p.color = WHITE; const a = Math.random() * Math.PI * 2; p.vx = Math.cos(a) * 0.5; p.vy = Math.sin(a) * 0.5; } }
+// Un voto: un'onda parte dalla particella. A live spento la particella si
+// accende ma resta nello sciame (si vede CHE si vota, non COSA); a live acceso
+// va dritta al suo polo.
+function segnaVoto(p, tag) {
+  p.voted = true; p.ping = 1;
+  if (tag) setOrbit(p, tag); else p.color = ACCENT;
+}
+function clearOrbits() { for (const p of particles.values()) { p.target = null; p.color = WHITE; p.a = 1; p.voted = false; const a = Math.random() * Math.PI * 2; p.vx = Math.cos(a) * 0.5; p.vy = Math.sin(a) * 0.5; } }
+// Alla chiusura, a live spento, il proiettore non sa chi ha votato cosa: le
+// particelle sono anonime e conta solo quante finiscono in ogni polo. Prima
+// quelle che hanno votato davvero, poi (se il conto non torna) le altre.
+function assegnaPoli(opts, conteggi) {
+  const lista = [...particles.values()].sort((a, b) => !!b.voted - !!a.voted);
+  let i = 0;
+  for (const o of opts) for (let k = 0; k < (conteggi[o.tag] || 0) && i < lista.length; k++) setOrbit(lista[i++], o.tag);
+}
 function polePos() {
   const votingVisible = !$("voteArea").classList.contains("hidden") && !$("game").classList.contains("hidden");
   poles = {};
@@ -49,7 +65,8 @@ function polePos() {
   // coordinate-documento (il canvas parte da top:0): aggiungo lo scroll
   for (const el of document.querySelectorAll("#poles .pole")) {
     const b = el.getBoundingClientRect();
-    poles[el.dataset.tag] = { x: b.left + b.width / 2 + scrollX, y: b.top + b.height / 2 + scrollY };
+    // in basso a destra: il testo sta in alto, il numero in basso a sinistra
+    poles[el.dataset.tag] = { x: b.left + b.width * 0.8 + scrollX, y: b.top + b.height * 0.62 + scrollY };
   }
 }
 // --- BOIDS idle: lento e un po' caotico -----------------------------------
@@ -94,7 +111,10 @@ function flock(p, list) {
 const GRAV = 0.34, SWIRL = 0.22, VOTE_SEP = 26, VOTE_MAX = 2.6, VOTE_DAMP = 0.9;
 function swarm(p, c, list) {
   const dx = c.x - p.x, dy = c.y - p.y, d = Math.hypot(dx, dy) || 1;
-  let ax = (dx / d) * GRAV, ay = (dy / d) * GRAV;                     // gravità verso il centro
+  // lontano tira e corre di più (alla rivelazione arrivano in un paio di
+  // secondi da qualunque punto dello schermo), vicino resta il vortice
+  const pull = GRAV + d * 0.002, cap = VOTE_MAX + d * 0.02;
+  let ax = (dx / d) * pull, ay = (dy / d) * pull;                     // gravità verso il centro
   ax += (-dy / d) * SWIRL * p.spin; ay += (dx / d) * SWIRL * p.spin;  // vortice attorno al centro
   for (const q of list) {                                            // separazione: niente collasso in un punto
     if (q === p || !q.target) continue;
@@ -102,7 +122,7 @@ function swarm(p, c, list) {
     if (sd > 0 && sd < VOTE_SEP) { ax += sx / sd * 0.3; ay += sy / sd * 0.3; }
   }
   p.vx = (p.vx + ax) * VOTE_DAMP; p.vy = (p.vy + ay) * VOTE_DAMP;
-  const sp = Math.hypot(p.vx, p.vy); if (sp > VOTE_MAX) { p.vx = p.vx / sp * VOTE_MAX; p.vy = p.vy / sp * VOTE_MAX; }
+  const sp = Math.hypot(p.vx, p.vy); if (sp > cap) { p.vx = p.vx / sp * cap; p.vy = p.vy / sp * cap; }
   p.x += p.vx; p.y += p.vy;
 }
 function frame() {
@@ -112,10 +132,18 @@ function frame() {
     const targeting = p.target && poles[p.target];
     if (targeting) swarm(p, poles[p.target], list);
     else flock(p, list);
+    ctx.globalAlpha = p.a;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7);
-    ctx.fillStyle = p.color; ctx.shadowBlur = targeting ? 18 : 9; ctx.shadowColor = p.color;
+    ctx.fillStyle = p.color; ctx.shadowBlur = targeting || p.voted ? 18 : 9; ctx.shadowColor = p.color;
     ctx.fill(); ctx.shadowBlur = 0;
+    if (p.ping > 0) {                    // il voto appena dato: un'onda che si allarga e svanisce
+      ctx.globalAlpha = p.ping * p.a;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r + (1 - p.ping) * 48, 0, 7);
+      ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.stroke();
+      p.ping -= 0.018;
+    }
   }
+  ctx.globalAlpha = 1;
   requestAnimationFrame(frame);
 }
 frame();
@@ -221,22 +249,40 @@ function runVoteTimer(restaMs, durataSec) {
   voteTl = G.to(bar, { scaleX: 0, duration: restaMs / 1000, ease: "none" });
 }
 
-// La rivelazione: cosa ha scelto la sala, la forbice completa di tutti i tag,
-// il costo nascosto di quello che ha vinto e la chiusura scritta, se c'è.
-let revealShown = false;
-function renderReveal(r) {
-  $("revChoice").textContent = r.label;
-  $("revCosto").textContent = r.costo || "";
-  $("revTally").innerHTML = r.opts.map((o, i) =>
-    `<div class="voce" style="--c:${POLI[i % POLI.length]}">${r.conteggi[o.tag] ?? 0}<small>${esc(o.label)}</small></div>`).join("");
+// Numero, percentuale e barra di un polo. `v` può essere frazionario: è il
+// valore di un tween, la barra lo segue liscia e il numero si arrotonda.
+function scriviPolo(el, v, tot) {
+  const n = el.querySelector(".n");
+  n.dataset.v = Math.round(v);
+  n.innerHTML = `${Math.round(v)}<small>${tot ? Math.round(v / tot * 100) : 0}%</small>`;
+  el.querySelector(".bar > i").style.transform = `scaleX(${tot ? v / tot : 0})`;
+}
+
+// La rivelazione avviene DENTRO i poli, senza cambiare schermata: le particelle
+// raggiungono la loro risposta (a live spento è la prima volta che la forbice
+// si vede), barre e numeri crescono insieme, poi il vincitore si accende e gli
+// altri si spengono. La chiusura scritta arriva dopo una pausa piena: è il
+// momento in cui si parla.
+function playReveal(r, live) {
+  const tot = Object.values(r.conteggi).reduce((a, b) => a + b, 0);
+  const box = [...document.querySelectorAll("#poles .pole")];
+  const vinto = box.find(el => el.dataset.tag === r.winner);
   $("revChiusura").textContent = r.chiusura || "";
-  $("revChiusura").classList.toggle("hidden", !r.chiusura);
-  if (revealShown || REDUCED || !G) return;
-  revealShown = true;
-  G.timeline()
-    .from("#revChoice, #revTally .voce, #revCosto", { opacity: 0, y: 20, stagger: 0.12, duration: 0.5, ease: "power3.out" })
-    // la chiusura arriva dopo una pausa piena: è il momento in cui si parla
-    .from("#revChiusura", { opacity: 0, y: 24, duration: 0.8, ease: "power3.out" }, "+=0.6");
+  box.forEach(el => el.querySelector(".n").classList.remove("hidden"));
+  if (!live) assegnaPoli(r.opts, r.conteggi);      // a live acceso sono già al loro posto
+  const accendi = () => {
+    box.forEach(el => el.classList.add(el === vinto ? "win" : "dim"));
+    for (const p of particles.values()) if (p.target !== r.winner) p.a = p.target ? 0.35 : 0.15;
+  };
+  if (REDUCED || !G) { box.forEach(el => scriviPolo(el, r.conteggi[el.dataset.tag] || 0, tot)); accendi(); return; }
+  const tl = G.timeline();
+  box.forEach((el, i) => {
+    const o = { v: 0 }, n = r.conteggi[el.dataset.tag] || 0;
+    tl.to(o, { v: n, duration: 1.8, ease: "power2.out", onUpdate: () => scriviPolo(el, o.v, tot) }, 0.5 + i * 0.15);
+  });
+  tl.add(accendi, "+=0.2");
+  if (vinto) tl.fromTo(vinto, { scale: 1 }, { scale: 1.03, duration: 0.25, yoyo: true, repeat: 1, ease: "power2.out" }, "<");
+  tl.from("#revChiusura", { opacity: 0, y: 24, duration: 0.8, ease: "power3.out" }, "+=0.6");
 }
 
 // I poli sono generati da qui, non scritti a mano: da 2 a 4, colore per indice.
@@ -251,40 +297,44 @@ function renderPoles(opts) {
   poliTags = firma;
   const box = $("poles");
   box.classList.toggle("stretta", opts.length > 2);
+  box.style.setProperty("--cols", opts.length === 3 ? 3 : 2);
   box.innerHTML = opts.map((o, i) => `<div class="pole" data-tag="${esc(o.tag)}" style="--c:${POLI[i % POLI.length]}">
-      <div>
-        <div class="opt">${esc(o.label)}</div>
-        ${o.guadagno ? `<div class="gain"><b>Cosa guadagni</b>${esc(o.guadagno)}</div>` : ""}
-        ${o.costo_nascosto ? `<div class="cost"><b>Cosa paghi</b>${esc(o.costo_nascosto)}</div>` : ""}
-      </div>
+      <span class="chip">La sala ha scelto</span>
+      <div class="opt">${esc(o.label)}</div>
       <div class="n">0</div>
+      <div class="bar"><i></i></div>
     </div>`).join("");
 }
 
-let bodyIndex = -1, voteShown = false;
+let bodyIndex = -1, voteShown = false, revealShown = false;
 function renderBody(s) {
-  if (bodyIndex !== s.index) { window.scrollTo({ top: 0 }); animateChapterIn(s); bodyIndex = s.index; voteShown = false; revealShown = false; }  // nuovo capitolo → torna in cima
+  if (bodyIndex !== s.index) {           // nuovo capitolo → torna in cima, poli da rifare
+    window.scrollTo({ top: 0 }); animateChapterIn(s);
+    bodyIndex = s.index; voteShown = false; revealShown = false; poliTags = "";
+  }
   const voting = s.phase === "voting" && s.options;
   const revealing = s.phase === "revealing" && s.reveal;
-  $("revealArea").classList.toggle("hidden", !revealing);
+  $("game").classList.toggle("voto", !!(voting || revealing));   // la domanda si stringe, i poli entrano
+  $("voteArea").classList.toggle("hidden", !(voting || revealing));
+  $("voteMeta").classList.toggle("hidden", !voting);
+  // senza beats la domanda è già in chBody: qui servirebbe solo a ripeterla
+  $("voteQ").classList.toggle("hidden", !s.chapter.beats);
+  $("voteQ").textContent = s.chapter.q || "";
+  $("revChiusura").classList.toggle("hidden", !(revealing && s.reveal.chiusura));
   if (revealing) {
-    renderReveal(s.reveal);
-    clearOrbits();                       // il voto è chiuso: le particelle si sciolgono
     runVoteTimer(null);
-    $("voteArea").classList.add("hidden");
-    $("revealArea").scrollIntoView({ behavior: "smooth", block: "center" });
+    renderPoles(s.reveal.opts);
+    if (!revealShown) { revealShown = true; voteShown = false; polePos(); playReveal(s.reveal, s.chapter.mostra_live); }
     return;
   }
-  $("voteArea").classList.toggle("hidden", !voting);
-  revealShown = false;                   // se il regista riapre il voto, l'esito si rigioca
+  if (revealShown) { revealShown = false; poliTags = ""; }   // voto riaperto: poli puliti, l'esito si rigioca
   if (voting) {
-    $("voteQ").textContent = s.options.q;
     renderPoles(s.options.opts);
     showTally(s.tally, false);
     if (!voteShown) {
       voteShown = true; clearOrbits();
       runVoteTimer(s.voteRestaMs, s.voteDurata);
-      setTimeout(() => { polePos(); animateVoteIn(); $("voteArea").scrollIntoView({ behavior: "smooth", block: "center" }); }, 30);
+      setTimeout(() => { polePos(); animateVoteIn(); }, 30);
     }
   } else { voteShown = false; clearOrbits(); runVoteTimer(null); }
   polePos();
@@ -364,29 +414,43 @@ socket.on("main:participant", ({ cid, action, connected }) => {
   if (action === "join") ensure(cid); else particles.delete(cid);
   $("lobbyCount").textContent = connected;
 });
-socket.on("main:particle", ({ cid, tag }) => { ensure(cid); setOrbit(particles.get(cid), tag); });
+socket.on("main:particle", ({ cid, tag }) => { ensure(cid); segnaVoto(particles.get(cid), tag); });
 // A live spento i conteggi arrivano nulli: la sala vede quanti hanno votato,
 // non da che parte (§1.5). I numeri spariscono del tutto invece di mostrare un
 // segnaposto: caselle vuote dove prima c'erano i numeri sembrano un guasto, e
 // dal fondo della sala nessuno può chiedere.
+let votanti = -1;
 function showTally(t, pulse) {
   const conteggi = t.conteggi || {};
   for (const el of document.querySelectorAll("#poles .pole")) {
     const n = el.querySelector(".n"), v = conteggi[el.dataset.tag];
     n.classList.toggle("hidden", v == null);
-    if (v == null || n.textContent === String(v)) continue;
-    n.textContent = v;
-    if (pulse && G && !REDUCED) G.fromTo(n, { scale: 1.25 }, { scale: 1, duration: 0.35, ease: "back.out(2)" });
+    if (v == null) continue;
+    const cambiato = n.dataset.v !== String(v);
+    scriviPolo(el, v, t.total);          // le percentuali cambiano anche dove il numero no
+    if (pulse && cambiato && G && !REDUCED) G.fromTo(n, { scale: 1.25 }, { scale: 1, duration: 0.35, ease: "back.out(2)" });
   }
+  const cambiato = t.total !== votanti;
+  votanti = t.total;
   $("voteCount").innerHTML = t.live ? ""
-    : `<b>${t.total}</b> hanno votato <span class="pill">i numeri si vedono a voto chiuso</span>`;
+    : `<b>${t.total}</b> di ${Math.max(t.total, t.connected)} hanno votato <span class="pill">i numeri si vedono a voto chiuso</span>`;
+  if (pulse && cambiato && !t.live && G && !REDUCED)
+    G.fromTo("#voteCount b", { scale: 1.4 }, { scale: 1, duration: 0.4, ease: "back.out(2)" });
 }
 socket.on("main:tally", (t) => showTally(t, true));
 
 function startTransition(s, reveal) {
   transitioning = true;
+  clearOrbits();                         // i poli spariscono col capitolo: le particelle tornano libere
   if (G && !REDUCED) G.set("#col", { opacity: 0 });
-  playInterstitial(s.chapter.occhiello, s.chapter.titolo).then(() => { transitioning = false; reveal(latest); });
+  playInterstitial(s.chapter.occhiello, s.chapter.titolo).then(() => {
+    transitioning = false;
+    // il regista è andato oltre durante la wheel (doppio Avanti, reset): si
+    // rifà per il capitolo nuovo, o in alto resterebbe il titolo di quello vecchio
+    const x = latest, inGioco = x.phase === "narrating" || x.phase === "voting" || x.phase === "revealing";
+    if (inGioco && x.index !== s.index) startTransition(x, reveal);
+    else reveal(x);
+  });
 }
 
 socket.on("main:sync", (s) => {
@@ -411,7 +475,10 @@ socket.on("main:sync", (s) => {
 
   // l'interludio può finire quando il regista è già andato oltre: al termine
   // si mostra lo stato più recente, qualunque sia
-  const reveal = (x) => (x.phase === "ended" ? renderEnded(x) : x.chapter ? renderBody(x) : null);
+  // ...ma la lobby no: ha un capitolo (l'indice è 0) e disegnarlo segnerebbe
+  // quel capitolo come già visto, lasciando #col a opacità 0 dopo la prossima wheel
+  const reveal = (x) => (x.phase === "ended" ? renderEnded(x)
+    : x.phase !== "lobby" && x.chapter ? renderBody(x) : null);
 
   if (transitioning) return;
   if (newChapter) startTransition(s, reveal);

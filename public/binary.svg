@@ -1,0 +1,79 @@
+<!-- Fondo di brand: la pioggia binaria del poster. Tile 360×480, colonne che
+     avvolgono in verticale (si ripete senza giunte). Testo di sistema: un SVG
+     usato come sfondo non carica i web font, quindi Barlow qui non c'è. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="480" viewBox="0 0 360 480">
+  <g font-family="'Barlow Condensed', 'Arial Narrow', 'DIN Condensed', sans-serif" font-size="28" font-weight="600" text-anchor="middle" fill="#F0EBE1" opacity="0.5">
+    <text x="20" y="230" fill-opacity="0.037">0</text>
+    <text x="20" y="270" fill-opacity="0.049">0</text>
+    <text x="20" y="310" fill-opacity="0.061">1</text>
+    <text x="20" y="350" fill-opacity="0.074">1</text>
+    <text x="20" y="390" fill-opacity="0.086">1</text>
+    <text x="20" y="430" fill-opacity="0.098">0</text>
+    <text x="20" y="470" fill-opacity="0.110">0</text>
+    <text x="60" y="70" fill-opacity="0.042">0</text>
+    <text x="60" y="110" fill-opacity="0.059">1</text>
+    <text x="60" y="150" fill-opacity="0.076">0</text>
+    <text x="60" y="190" fill-opacity="0.093">1</text>
+    <text x="60" y="230" fill-opacity="0.110">1</text>
+    <text x="100" y="270" fill-opacity="0.042">1</text>
+    <text x="100" y="310" fill-opacity="0.059">1</text>
+    <text x="100" y="350" fill-opacity="0.076">1</text>
+    <text x="100" y="390" fill-opacity="0.093">0</text>
+    <text x="100" y="430" fill-opacity="0.110">1</text>
+    <text x="140" y="350" fill-opacity="0.037">1</text>
+    <text x="140" y="390" fill-opacity="0.049">1</text>
+    <text x="140" y="430" fill-opacity="0.061">1</text>
+    <text x="140" y="470" fill-opacity="0.074">0</text>
+    <text x="140" y="30" fill-opacity="0.086">1</text>
+    <text x="140" y="70" fill-opacity="0.098">0</text>
+    <text x="140" y="110" fill-opacity="0.110">1</text>
+    <text x="180" y="310" fill-opacity="0.039">0</text>
+    <text x="180" y="350" fill-opacity="0.053">1</text>
+    <text x="180" y="390" fill-opacity="0.068">1</text>
+    <text x="180" y="430" fill-opacity="0.082">0</text>
+    <text x="180" y="470" fill-opacity="0.096">1</text>
+    <text x="180" y="30" fill-opacity="0.110">1</text>
+    <text x="180" y="270" fill-opacity="0.037">1</text>
+    <text x="180" y="310" fill-opacity="0.049">1</text>
+    <text x="180" y="350" fill-opacity="0.061">1</text>
+    <text x="180" y="390" fill-opacity="0.074">0</text>
+    <text x="180" y="430" fill-opacity="0.086">0</text>
+    <text x="180" y="470" fill-opacity="0.098">0</text>
+    <text x="180" y="30" fill-opacity="0.110">0</text>
+    <text x="220" y="470" fill-opacity="0.037">1</text>
+    <text x="220" y="30" fill-opacity="0.049">1</text>
+    <text x="220" y="70" fill-opacity="0.061">0</text>
+    <text x="220" y="110" fill-opacity="0.074">1</text>
+    <text x="220" y="150" fill-opacity="0.086">0</text>
+    <text x="220" y="190" fill-opacity="0.098">0</text>
+    <text x="220" y="230" fill-opacity="0.110">1</text>
+    <text x="260" y="470" fill-opacity="0.037">1</text>
+    <text x="260" y="30" fill-opacity="0.049">1</text>
+    <text x="260" y="70" fill-opacity="0.061">1</text>
+    <text x="260" y="110" fill-opacity="0.074">1</text>
+    <text x="260" y="150" fill-opacity="0.086">1</text>
+    <text x="260" y="190" fill-opacity="0.098">1</text>
+    <text x="260" y="230" fill-opacity="0.110">0</text>
+    <text x="260" y="190" fill-opacity="0.042">0</text>
+    <text x="260" y="230" fill-opacity="0.059">0</text>
+    <text x="260" y="270" fill-opacity="0.076">0</text>
+    <text x="260" y="310" fill-opacity="0.093">1</text>
+    <text x="260" y="350" fill-opacity="0.110">1</text>
+    <text x="300" y="150" fill-opacity="0.042">1</text>
+    <text x="300" y="190" fill-opacity="0.059">1</text>
+    <text x="300" y="230" fill-opacity="0.076">1</text>
+    <text x="300" y="270" fill-opacity="0.093">1</text>
+    <text x="300" y="310" fill-opacity="0.110">0</text>
+    <text x="300" y="190" fill-opacity="0.042">1</text>
+    <text x="300" y="230" fill-opacity="0.059">0</text>
+    <text x="300" y="270" fill-opacity="0.076">1</text>
+    <text x="300" y="310" fill-opacity="0.093">1</text>
+    <text x="300" y="350" fill-opacity="0.110">1</text>
+    <text x="340" y="270" fill-opacity="0.039">0</text>
+    <text x="340" y="310" fill-opacity="0.053">1</text>
+    <text x="340" y="350" fill-opacity="0.068">1</text>
+    <text x="340" y="390" fill-opacity="0.082">1</text>
+    <text x="340" y="430" fill-opacity="0.096">0</text>
+    <text x="340" y="470" fill-opacity="0.110">0</text>
+  </g>
+</svg>

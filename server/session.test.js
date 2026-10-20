@@ -68,8 +68,6 @@ for (const e of ESEMPI) {
     assert.equal(r.winner, primo);
     assert.deepEqual(r.conteggi, t.conteggi, "la forbice completa si vede sempre alla rivelazione");
     assert.ok(r.label, "serve l'opzione vinta");
-    const vinta = e.opzioni.find(o => o.tag === primo);
-    assert.equal(r.costo, vinta.costo_nascosto ?? null, "il costo nascosto c'è solo se scritto");
     assert.equal(r.chiusura, e.chiusura || null);
   } else {
     s.openVote();
@@ -193,7 +191,8 @@ s3.vote(solo, tagN(e0, 0)); s3.closeVote();
 assert.equal(s3.history.at(-1).winner, tagN(e0, 0), "il nuovo esito sostituisce il vecchio");
 
 // ---- forbice live: il gate di mostra_live --------------------------------
-const s6 = new Session(io);
+const particelle = [];
+const s6 = new Session({ to: () => ({ emit: (ev, p) => ev === "main:particle" && particelle.push(p) }) });
 const occhi = s6.addParticipant(null, socket("s1"));
 s6.start();
 for (const e of VOTABILI) {
@@ -203,6 +202,7 @@ for (const e of VOTABILI) {
   s6.vote(occhi, primo);
   const sala = s6.mainView().tally, regia = s6.directorView().tally;
   assert.equal(regia.conteggi[primo], 1, `${e.id}: la regia vede sempre la forbice vera`);
+  assert.equal(particelle.at(-1).tag, e.mostra_live ? primo : null, `${e.id}: la particella non tradisce il live spento`);
   if (e.mostra_live) {
     assert.equal(sala.conteggi[primo], 1, `${e.id}: live acceso, la sala vede i numeri`);
     assert.equal(sala.live, true);

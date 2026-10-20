@@ -14,7 +14,7 @@
   body.fine .screen { justify-content: flex-start; }
   .wait { text-align: center; }
   .wait .display { font-size: 1.6rem; color: var(--accent); margin-bottom: var(--sp-sm); }
-  .vote-opt { width: 100%; text-align: left; font-family: var(--font-text); text-transform: none; letter-spacing: 0; font-size: 1.1rem; padding: var(--sp-md); line-height: 1.4; }
+  .vote-opt { width: 100%; text-align: left; font-family: var(--font-text); text-transform: none; letter-spacing: 0; font-size: 1.25rem; padding: var(--sp-md); line-height: 1.35; }
   .vote-opt.picked { background: var(--accent); color: var(--ink); }
   #timerNote { text-align: center; }
   /* quanto resta per cambiare idea: una barra, senza cifre che mettano fretta */
@@ -84,7 +84,8 @@
   <!-- voto -->
   <div id="voteBox" class="hidden">
     <div class="year">La storia si è fermata</div>
-    <h2 id="q" style="font-size:1.4rem"></h2>
+    <!-- frase lunga: in minuscolo si legge, in maiuscolo no -->
+    <h2 id="q" style="font-size:1.6rem; line-height:1.2; font-weight:600; text-transform:none; letter-spacing:0"></h2>
     <div id="opts"></div>
     <div class="votebar"><i id="voteFill"></i></div>
     <p id="voteNote" class="muted hidden" style="text-align:center">Voto registrato. Puoi ancora cambiare idea.</p>

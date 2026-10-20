@@ -14,9 +14,9 @@
      percorrere: la wheel mostra occhiello + titolo dell'esempio. */
   #iBg { position: fixed; inset: 0; z-index: 5; opacity: 0; pointer-events: none;
     background-color: var(--bg);
-    background-image: radial-gradient(ellipse at 50% 42%, var(--accent-a) 0%, transparent 55%), url("circuit.svg"),
+    background-image: radial-gradient(ellipse at 50% 42%, var(--accent-a) 0%, transparent 55%), url("binary.svg"),
                       radial-gradient(ellipse at 50% 42%, var(--bg-a) 0%, var(--bg-deep) 100%);
-    background-size: 120% 80%, 320px 320px, cover; background-repeat: no-repeat, repeat, no-repeat; }
+    background-size: 120% 80%, 360px 480px, cover; background-repeat: no-repeat, repeat, no-repeat; }
   /* Dimensioni qui = stato WHEEL (grande): il render nativo è a piena risoluzione,
      così la wheel (scale 1) è nitida; il titolo è lo stesso elemento RIMPICCIOLITO
      (downscale → resta nitido). Scalare in su un render piccolo, invece, sgrana. */
@@ -31,49 +31,81 @@
      mettere a lato, e i quattro poli di voto hanno bisogno di tutta la larghezza. */
   main { flex: 1; padding: var(--sp-xl); max-width: 1500px; margin: 0 auto; width: 100%; }
 
-  /* lobby */
-  #lobby { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: var(--sp-md); }
-  #qr { width: min(42vh, 360px); height: min(42vh, 360px); border-radius: 16px; border: 1px solid var(--wire); background: #fff; padding: 14px; }
+  /* LOBBY — impaginata come il poster: il lockup nella cornice blu a sinistra,
+     il QR a destra, grande, perché si inquadra dal fondo della sala */
+  #lobby { min-height: 100vh; display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: var(--sp-xl); padding: var(--sp-lg); }
+  .poster { border: 3px solid var(--accent); padding: var(--sp-lg) var(--sp-lg) var(--sp-md); }
+  .logo { font-family: var(--font-display); font-weight: 800; line-height: 0.85; letter-spacing: -0.01em;
+    font-size: clamp(5rem, 11vw, 11rem); white-space: nowrap; margin: 0; }
+  /* le due I del logo sono barre inclinate: «S//DRO» */
+  .logo i { display: inline-block; font-style: normal; transform: skewX(-20deg); letter-spacing: 0.02em; }
+  .lockup { display: flex; align-items: center; gap: 0.3em; font-size: clamp(2.4rem, 5.2vw, 5.2rem); margin-top: 0.2em; }
+  .lockup .ict { font-family: var(--font-display); font-weight: 800; line-height: 0.85; }
+  .lockup .cs { border-left: 2px solid var(--muted); padding-left: 0.3em; line-height: 1; font-size: 0.42em; }
+  .lockup .cs span { display: block; font-weight: 300; letter-spacing: 0.24em; }
+  .lockup .cs b { display: block; font-family: var(--font-cond); font-weight: 600; letter-spacing: 0.42em; color: var(--accent); }
+  .poster .quando { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.2rem, 2vw, 1.8rem);
+    letter-spacing: 0.04em; text-transform: uppercase; margin-top: var(--sp-md); }
+  .poster .quando b { color: var(--accent); }
+  .ingresso { text-align: center; }
+  #qr { display: block; width: min(56vh, 520px); height: min(56vh, 520px); border-radius: 16px; background: #fff; padding: 16px; }
+  .ingresso p { margin: var(--sp-sm) 0 0; font-size: clamp(1.1rem, 1.6vw, 1.5rem); }
   .count { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem,6vw,4rem); color: var(--accent); }
+
+  /* DOMANDA — è la cosa che la sala deve leggere dal fondo: grande in
+     narrazione, e quando si apre il voto si stringe per far posto ai poli
+     (stesso elemento, nessun doppione). */
+  #chBody .signal, #voteQ { font-family: var(--font-display); font-style: normal; font-weight: 600; text-transform: none;
+    letter-spacing: 0; line-height: 1.12; margin: 0; }
+  #chBody .signal { font-size: clamp(2.2rem, 4.4vw, 4.6rem); border-left-width: 6px; padding: 0.1em 0 0.1em 0.6em;
+    transition: font-size 0.7s ease; }
+  #game.voto #chBody .signal, #voteQ { font-size: clamp(1.8rem, 2.9vw, 3.1rem); }
+  #chBody .beat { font-size: clamp(1.4rem, 2.4vw, 2.4rem); line-height: 1.3; }
 
   /* POLI DI VOTO — da 2 a 4, generati da JS. Il colore arriva per indice
      (--pole-1..4) su --c: una variabile sola, niente classi per opzione. */
+  /* Colonne decise da JS (--cols): 2 o 4 opzioni → 2×2, 3 → una riga. Il
+     vecchio auto-fit con quattro opzioni faceva 3+1. */
   .poles { display: grid; gap: var(--sp-md); margin-top: var(--sp-lg);
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20em), 1fr)); }
-  .pole { border: 1px solid var(--wire); border-color: var(--c); border-radius: 16px; padding: var(--sp-md);
-    min-height: 30vh; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
-  .pole.win { box-shadow: 0 0 0 2px currentColor inset; color: var(--c); }
-  .pole .opt { font-family: var(--font-text); font-size: clamp(1rem,1.6vw,1.4rem); color: var(--white); }
-  /* "Cosa guadagni / Cosa paghi" invece di una tabella pro-contro: mette la sala
-     davanti al dilemma senza far sembrare ovvia la risposta giusta */
-  .pole .gain, .pole .cost { font-size: 0.95rem; color: var(--muted); margin-top: 0.9em; }
-  .pole .gain b, .pole .cost b { display: block; font-family: var(--font-display); font-weight: 700;
-    font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 0.25em; color: var(--c); }
-  .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem,7vw,5rem); font-variant-numeric: tabular-nums; min-width: 0; }
-  /* con tre o quattro opzioni lo spazio si stringe: i testi rientrano */
-  .poles.stretta .pole { min-height: 24vh; padding: var(--sp-sm) var(--sp-md); }
-  .poles.stretta .opt { font-size: clamp(0.95rem,1.25vw,1.15rem); }
-  .poles.stretta .gain, .poles.stretta .cost { font-size: 0.85rem; margin-top: 0.6em; }
-  .poles.stretta .n { font-size: clamp(2rem,4vw,3.2rem); }
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
+  .pole { position: relative; border: 2px solid var(--c); border-radius: 16px; padding: var(--sp-md) var(--sp-md) calc(var(--sp-md) + 8px);
+    /* fondo solo velato: il canvas delle particelle sta SOTTO i poli, uno pieno le nasconderebbe */
+    min-height: 22vh; background-color: rgba(20,20,20,0.3); display: flex; flex-direction: column; justify-content: space-between; gap: var(--sp-sm);
+    transition: opacity 0.6s, background-color 0.6s, box-shadow 0.6s; }
+  .pole .opt { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.4rem, 2.3vw, 2.5rem); line-height: 1.2; color: var(--white); }
+  .pole .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(2.6rem, 5vw, 4.6rem); line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--c); transform-origin: left bottom; }
+  .pole .n small { font-size: 0.42em; font-weight: 600; color: var(--muted); margin-left: 0.35em; }
+  /* la forbice come barra sul bordo basso: cresce alla rivelazione (o in diretta, a live acceso) */
+  .pole .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; border-radius: 0 0 14px 14px;
+    background: rgba(240,235,225,0.08); overflow: hidden; }
+  .pole .bar > i { display: block; height: 100%; background: var(--c); transform-origin: left center; transform: scaleX(0); }
+  /* il vincitore: si accende, gli altri si spengono, e un'etichetta sul bordo
+     come la legenda di un fieldset (non copre il testo dell'opzione) */
+  .pole .chip { position: absolute; top: 0; left: var(--sp-md); transform: translateY(-50%); display: none;
+    background: var(--c); color: var(--ink); padding: 0.25em 0.9em; border-radius: 6px;
+    font-family: var(--font-cond); font-weight: 700; font-size: clamp(0.9rem, 1.2vw, 1.15rem); letter-spacing: 0.24em; text-transform: uppercase; }
+  .pole.win { background-color: color-mix(in srgb, var(--c) 12%, rgba(20,20,20,0.3)); box-shadow: 0 0 56px -10px var(--c); }
+  .pole.win .chip { display: block; }
+  .pole.dim { opacity: 0.32; }
+  .poles.stretta .pole { padding-left: var(--sp-sm); padding-right: var(--sp-sm); }
+  .poles.stretta .opt { font-size: clamp(1.3rem, 1.9vw, 2.1rem); }
   /* timer del voto: una barra che si svuota, senza cifre — un numero che scende
      mette fretta, una barra dà il tempo che resta senza contarlo */
   .votebar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; margin-top: var(--sp-sm); }
   .votebar > i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left center; }
-  #voteCount { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; font-size: 0.95rem; color: var(--muted); margin-top: var(--sp-sm); }
-  #voteCount b { font-size: 2.2rem; color: var(--accent); letter-spacing: 0; vertical-align: -0.15em; }
+  #voteCount { font-family: var(--font-cond); font-weight: 600; letter-spacing: 0.2em;
+    text-transform: uppercase; font-size: clamp(1rem, 1.3vw, 1.3rem); color: var(--muted); margin-top: var(--sp-sm); }
+  #voteCount b { display: inline-block; font-family: var(--font-display); font-weight: 800; font-size: 2.4em;
+    color: var(--accent); letter-spacing: 0; vertical-align: -0.2em; font-variant-numeric: tabular-nums; }
   /* dice che il silenzio è voluto, non un guasto */
-  #voteCount .pill { display: inline-block; margin-left: 0.8em; padding: 0.35em 0.9em; font-size: 0.7rem;
-    border: 1px solid var(--wire); border-radius: 999px; letter-spacing: 0.1em; }
+  #voteCount .pill { display: inline-block; margin-left: 0.8em; padding: 0.3em 0.9em; font-size: 0.75em;
+    border: 1px solid var(--wire); border-radius: 999px; letter-spacing: 0.14em; }
 
-  /* rivelazione: la forbice completa si vede sempre qui, anche dove il live era spento */
-  .revtally { display: flex; flex-wrap: wrap; gap: var(--sp-md); margin: var(--sp-md) 0; }
-  .revtally .voce { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums;
-    font-size: clamp(1.4rem,3vw,2.4rem); color: var(--c); }
-  .revtally .voce small { display: block; font-family: var(--font-text); font-weight: 400;
-    font-size: 0.8rem; letter-spacing: 0; text-transform: none; color: var(--muted); max-width: 14em; }
-  #revChiusura { border-left: 3px solid var(--accent); padding: 0.4em 0 0.4em 1em; margin-top: var(--sp-lg);
-    font-size: clamp(1rem,1.6vw,1.3rem); }
+  /* rivelazione: la forbice sta nei poli stessi; qui sotto solo la chiusura scritta */
+  #revChiusura { border-left: 4px solid var(--accent); padding: 0.3em 0 0.3em 0.8em; margin-top: var(--sp-lg);
+    font-size: clamp(1.4rem, 2.2vw, 2.2rem); line-height: 1.3; }
   /* CHAT — flusso di dati che sale nella banda bassa. Serve al narratore per
      pescare gli interventi: conta che si veda arrivare, non che si legga come
      un documento. Tre corsie, così tre messaggi insieme non si coprono. */
@@ -111,11 +143,19 @@
 
 <!-- LOBBY -->
 <div id="lobby" class="wrap">
-  <div class="year">SIIDRO 2026 · Lucca</div>
-  <h1 class="hero">SIIDRO ICT<br>Company Summit</h1>
-  <p class="muted">Un tavolo, non un palco. Inquadra il codice per entrare.</p>
-  <img id="qr" alt="QR di accesso">
-  <div><span class="count" id="lobbyCount">0</span> <span class="muted">al tavolo</span></div>
+  <div class="poster">
+    <h1 class="logo" aria-label="SIIDRO">S<i>II</i>DRO</h1>
+    <div class="lockup">
+      <span class="ict">ICT</span>
+      <span class="cs"><span>COMPANY</span><b>SUMMIT</b></span>
+    </div>
+    <div class="quando">21 ottobre 2026 <b>//</b> Polo Tecnologico</div>
+  </div>
+  <div class="ingresso">
+    <img id="qr" alt="QR di accesso">
+    <p class="muted">Un tavolo, non un palco. Inquadra per entrare.</p>
+    <div><span class="count" id="lobbyCount">0</span> <span class="muted">al tavolo</span></div>
+  </div>
 </div>
 
 <!-- GIOCO — colonna singola (§5.1). Il titolo dell'esempio sta nel readout in
@@ -124,22 +164,18 @@
   <main id="col">
     <div id="chBody"></div>
 
+    <!-- VOTO e RIVELAZIONE — stessi poli: alla chiusura non si cambia schermata,
+         la forbice si materializza dentro le risposte -->
     <div id="voteArea" class="hidden">
-      <h2 id="voteQ" style="font-size:clamp(1.5rem,3vw,2.4rem)"></h2>
-      <div class="votebar"><i id="voteFill"></i></div>
-      <!-- a live spento è qui che la sala vede che si sta votando, senza sapere da che parte -->
-      <div class="muted" id="voteCount"></div>
+      <!-- solo se l'esempio ha dei beats: altrimenti la domanda è già in chBody -->
+      <h2 id="voteQ"></h2>
+      <div id="voteMeta">
+        <div class="votebar"><i id="voteFill"></i></div>
+        <!-- a live spento è qui che la sala vede che si sta votando, senza sapere da che parte -->
+        <div id="voteCount"></div>
+      </div>
       <div class="poles" id="poles"></div>
-    </div>
-
-    <!-- RIVELAZIONE — dopo la chiusura del voto: cosa ha scelto la sala,
-         la forbice completa, il costo nascosto di quello che ha vinto -->
-    <div id="revealArea" class="hidden">
-      <div class="year">La sala ha scelto</div>
-      <h2 id="revChoice" style="font-size:clamp(1.4rem,2.6vw,2.2rem)"></h2>
-      <div class="revtally" id="revTally"></div>
-      <p class="muted" id="revCosto"></p>
-      <p id="revChiusura"></p>
+      <p id="revChiusura" class="hidden"></p>
     </div>
   </main>
 </div>
