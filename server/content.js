@@ -19,6 +19,16 @@
 
 export const ESEMPI = [
 
+  // ---- 0 · CIPCIP: la home in una cornice, prima delle domande ------------
+  {
+    id: "cipcip",
+    occhiello: "Prima delle domande",
+    titolo: "CipCip",             // solo per la regia: a schermo niente wheel
+    senza_titolo: true,
+    votabile: false,
+    beats: [{ img: "cipcip.jpg", url: "cipcip.it" }]
+  },
+
   // ---- 1 · SOFTWARE REPLICABILE ------------------------------------------
   {
     id: "adobe-in-una-settimana",
@@ -26,7 +36,7 @@ export const ESEMPI = [
     titolo: "La suite rifatta in una settimana",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "Il vostro cliente più importante ha letto la notizia che un team di 5 persone in una settimana ha riscritto e reso open source l'intera suite Adobe grazie all'AI. Cosa starà pensando?",
     opzioni: [
       { tag: "reverse", label: "Chiamo una software house per fare reverse engineering dei software per cui pago licenze salate" },
@@ -44,7 +54,7 @@ export const ESEMPI = [
     titolo: "Analisti e sviluppatori si stanno fondendo",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "Le figure professionali si stanno rimescolando: analisti che scrivono codice, sviluppatori che scrivono documentazione… Tra 3 anni chi sopravvive?",
     opzioni: [
       { tag: "generalisti", label: "Solo i profili ultra-generalisti: una persona dal requisito al rilascio, gli agenti fanno il resto" },
@@ -62,7 +72,7 @@ export const ESEMPI = [
     titolo: "Due AI che si scrivono",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "Il cliente manda una richiesta di preventivo palesemente scritta da un'AI, e il vostro team genera la quotazione con l'AI. Che rischi o opportunità ci sono in questi scambi, sempre più diffusi?",
     opzioni: [
       { tag: "nessuno", label: "Nessuno, finché l'uomo si prende la responsabilità di cosa ha prodotto" },
@@ -80,7 +90,7 @@ export const ESEMPI = [
     titolo: "A cosa somiglierete nel 2030",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "In un mondo dove scrivere codice costa una piccolissima frazione rispetto al passato, quale paragone scegliete per il vostro modello di business?",
     opzioni: [
       { tag: "architetto", label: "Uno studio di architettura: vendo progetto e firma, la costruzione la fanno gli agenti" },
@@ -98,7 +108,7 @@ export const ESEMPI = [
     titolo: "Il commit che non doveva esistere",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "Vi arriva un messaggio: un vostro sviluppatore senior ha trovato nel repository dei commit che aveva espressamente detto al suo agente AI di non fare. Qual è la vostra prima reazione?",
     opzioni: [
       { tag: "competenza", label: "Uno strumento potente richiede competenze potenti: con le competenze giuste è gestibile" },
@@ -116,7 +126,7 @@ export const ESEMPI = [
     titolo: "Ogni azienda si farà il suo software?",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "Se generalizzare il software per risparmiare codice non serve più, ogni azienda finirà per farsi il proprio software?",
     opzioni: [
       { tag: "si", label: "Sì: il software generalista era un compromesso dovuto al costo del codice, e quel costo è sparito" },
@@ -134,7 +144,7 @@ export const ESEMPI = [
     titolo: "Chi paga quando sbaglia l'agente",
     votabile: true,
     mostra_live: false,
-    durata_voto_sec: 60,
+    durata_voto_sec: 120,
     q: "Un bug introdotto da un agente AI blocca il vostro cliente per due giorni. Il contratto non dice niente sull'AI. Chi paga?",
     opzioni: [
       { tag: "noi", label: "Noi: il cliente ha comprato da un'azienda, non da un modello" },

@@ -15,6 +15,8 @@
   .wait { text-align: center; }
   .wait .display { font-size: 1.6rem; color: var(--accent); margin-bottom: var(--sp-sm); }
   .vote-opt { width: 100%; text-align: left; font-family: var(--font-text); text-transform: none; letter-spacing: 0; font-size: 1.25rem; padding: var(--sp-md); line-height: 1.35; }
+  /* le opzioni non si toccano: separate, si sa quale si sta premendo */
+  #opts { display: flex; flex-direction: column; gap: var(--sp-sm); }
   .vote-opt.picked { background: var(--accent); color: var(--ink); }
   #timerNote { text-align: center; }
   /* quanto resta per cambiare idea: una barra, senza cifre che mettano fretta */
@@ -42,22 +44,29 @@
   .campo input:focus { outline: none; border-color: var(--accent); }
   .campo small { display: block; margin-top: 0.4em; font-size: 0.8rem; }
   #bEntra { width: 100%; margin-top: var(--sp-sm); }
+  /* liberatoria: la casella grande da toccare, il testo intero a un tocco */
+  .consenso { display: flex; gap: 0.7em; align-items: flex-start; font-size: 1rem; line-height: 1.45; cursor: pointer; }
+  .consenso input { flex: none; width: 1.4em; height: 1.4em; margin: 0.05em 0 0; accent-color: var(--accent); }
+  .liberatoria { margin: var(--sp-sm) 0; font-size: 0.9rem; line-height: 1.5; color: var(--muted); }
+  .liberatoria summary { cursor: pointer; color: var(--accent); }
+  .liberatoria p { margin: 0.6em 0 0; }
+  .liberatoria a { color: var(--accent); }
   /* l'epilogo: è la cosa che leggono, deve respirare */
   .epilogo { white-space: pre-wrap; font-size: 1.15rem; line-height: 1.7; margin: var(--sp-md) 0; }
   /* sezioni sotto l'epilogo, separate come i blocchi di un capitolo */
   .sez { margin-top: var(--sp-xl); padding-top: var(--sp-md); border-top: 1px solid var(--wire); }
   /* Riepilogo: una riga per esempio — la tua risposta e quella del tavolo.
      Con opzioni libere le frecce non dicono più niente: serve l'etichetta. */
-  .riga { border-top: 1px solid var(--wire); padding: 0.7em 0; }
+  .riga { border-top: 1px solid var(--wire); padding: 1.1em 0; }
   .riga .tit { font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; font-size: 0.7rem; color: var(--muted); }
-  .riga .coppia { display: flex; gap: 0.6em; margin-top: 0.25em; font-size: 0.95rem; }
-  .riga .coppia b { font-family: var(--font-display); font-weight: 700; font-size: 0.6rem;
+    letter-spacing: 0.08em; font-size: 1rem; line-height: 1.3; color: var(--muted); }
+  .riga .coppia { display: flex; gap: 0.8em; margin-top: 0.5em; font-size: 1.2rem; line-height: 1.4; }
+  .riga .coppia b { font-family: var(--font-display); font-weight: 700; font-size: 0.8rem;
     letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: block; }
   .riga .tu { color: var(--white); flex: 1; }
   .riga .sala { color: var(--accent); flex: 1; }
   .riga.diverso { border-left: 2px solid var(--accent); padding-left: 0.7em; }
-  #sceltePie { margin-top: var(--sp-md); font-size: 0.9rem; }
+  #sceltePie { margin-top: var(--sp-md); font-size: 1.2rem; }
 </style>
 </head>
 <body>
@@ -71,6 +80,22 @@
              placeholder="Nome e cognome, o solo nome" required>
       <small class="muted">Firma quello che scrivi in chat. Niente altro ti viene chiesto.</small>
     </label>
+    <!-- LIBERATORIA FOTO — si accetta per entrare (required: lo blocca il browser).
+         Il consenso non si salva da nessuna parte: lo stato muore col processo. -->
+    <label class="consenso">
+      <input id="fFoto" type="checkbox" required>
+      <span>Accetto la <b>liberatoria foto e video</b>: durante l'evento si scattano foto e riprese in cui posso comparire.</span>
+    </label>
+    <details class="liberatoria">
+      <summary>Leggi la liberatoria</summary>
+      <p>Partecipando al SIIDRO ICT Company Summit (21 ottobre 2026, Polo Tecnologico) autorizzo gli
+        organizzatori a realizzare fotografie e riprese video in cui posso comparire, e a pubblicarle a
+        titolo gratuito sui propri siti, canali social e materiali di comunicazione legati all'evento,
+        ai sensi dell'art. 10 del Codice Civile e degli artt. 96 e 97 della Legge 633/1941.</p>
+      <p>È escluso qualunque uso che pregiudichi la dignità personale e il decoro. Il consenso si può
+        revocare in qualsiasi momento scrivendo a <a href="mailto:connect@siidro.com">connect@siidro.com</a>; le immagini sono trattate secondo il
+        Regolamento UE 2016/679 (GDPR).</p>
+    </details>
     <button class="btn" id="bEntra" type="submit">Entra</button>
     <p id="fErr" class="muted hidden" style="text-align:center"></p>
   </form>

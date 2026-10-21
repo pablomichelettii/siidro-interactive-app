@@ -136,23 +136,26 @@ const ultimoId = ESEMPI.at(-1).id;
 sg.goto(ultimoId);
 assert.equal(sg.chapter.id, ultimoId, "si salta avanti");
 assert.equal(sg.phase, "narrating");
-sg.goto(ESEMPI[0].id);
-assert.equal(sg.chapter.id, ESEMPI[0].id, "e anche indietro");
+// indietro sulla prima votabile: la prima slide può essere di stacco (CipCip)
+const daVotare = VOTABILI[0].id;
+sg.goto(daVotare);
+assert.equal(sg.chapter.id, daVotare, "e anche indietro");
 sg.goto("mai-esistito");
-assert.equal(sg.chapter.id, ESEMPI[0].id, "un id sconosciuto non muove niente");
+assert.equal(sg.chapter.id, daVotare, "un id sconosciuto non muove niente");
 
 sg.openVote();
 sg.goto(ultimoId);
 assert.equal(sg.phase, "voting", "a voto aperto il salto si rifiuta");
-assert.equal(sg.chapter.id, ESEMPI[0].id);
+assert.equal(sg.chapter.id, daVotare);
 sg.closeVote();
 sg.goto(ultimoId);
 assert.equal(sg.chapter.id, ultimoId, "chiuso il voto, si salta");
 assert.equal(sg.history.length, 1, "saltare non cancella i voti già dati");
 const elenco = sg.directorView().esempi;
 assert.equal(elenco.length, ESEMPI.length);
-assert.equal(elenco[0].stato, "votato");
-assert.equal(elenco[0].winner, sg.history[0].winner, "il cruscotto dice cosa ha vinto");
+const votato = elenco.find(e => e.id === daVotare);
+assert.equal(votato.stato, "votato");
+assert.equal(votato.winner, sg.history[0].winner, "il cruscotto dice cosa ha vinto");
 assert.ok(sg.history[0].winnerLabel, "e la riga porta anche la label leggibile");
 assert.equal(elenco.at(-1).stato, "in corso");
 
@@ -219,7 +222,7 @@ for (const e of VOTABILI) {
 const s7 = new Session(io);
 const tizio = s7.addParticipant(null, socket("s1"));
 s7.start();
-// durata reale = 60s: non aspettabile in un test. La si abbassa sull'esempio.
+// durata reale = 120s: non aspettabile in un test. La si abbassa sull'esempio.
 const primoVotabile = VOTABILI[0], durataVera = primoVotabile.durata_voto_sec;
 primoVotabile.durata_voto_sec = 0.2;
 s7.goto(primoVotabile.id);

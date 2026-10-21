@@ -48,7 +48,8 @@ Tre superfici, stesso server (host = IP LAN della macchina in sala):
 
 ## Il contenuto: dove si cambiano le domande
 Tutto in [`server/content.js`](./server/content.js), dati e basta, nessuna logica.
-L'array `ESEMPI` oggi contiene 7 domande, **tutte votabili**: software
+L'array `ESEMPI` si apre con una slide di stacco (la home di cipcip.it in una
+cornice, senza titolo) e poi 7 domande votabili da 2 minuti l'una: software
 replicabile, responsabilità del codice, ruoli e fattore umano, modelli di
 business.
 
@@ -58,10 +59,11 @@ Campi di una slide:
 |---|---|
 | `id` | stabile: sta negli URL, nei log e nel cruscotto. Non si riusa |
 | `occhiello`, `titolo` | li mostra l'interludio tra una slide e l'altra |
+| `senza_titolo` | `true` = niente interludio sul proiettore: il titolo resta solo in regia |
 | `votabile` | `false` = slide di stacco, il regista la passa con *Avanti* |
 | `mostra_live` | `true` = la sala vede la forbice mentre si vota. Con `false` vede solo quanti hanno votato, e i numeri escono alla chiusura |
 | `durata_voto_sec` | `0` = nessun timer, chiude solo il regista |
-| `beats` | facoltativo: stringa = paragrafo, `{ sig }` = riquadro, `{ counter }` = numero che sale. **Senza `beats` il proiettore legge la domanda** |
+| `beats` | facoltativo: stringa = paragrafo, `{ sig }` = riquadro, `{ counter }` = numero che sale, `{ img, url }` = screenshot in una cornice da browser (file in `public/`). **Senza `beats` il proiettore legge la domanda** |
 | `q` + `opzioni` | da 2 a 4 opzioni, `tag` unico dentro la domanda. Nessuna è quella giusta |
 | `nota` | **solo cruscotto regia**: la lettura della risposta. Non si proietta mai |
 | `chiusura` | la riga che chiude la rivelazione sul proiettore |

@@ -315,6 +315,7 @@ export class Session {
       participants: [...this.participants.keys()],
       chapter: ch ? {
         id: ch.id, occhiello: ch.occhiello, titolo: ch.titolo,
+        senza_titolo: !!ch.senza_titolo,   // il titolo resta per la regia, il proiettore non lo mostra
         beats: ch.beats || null,
         q: ch.q || null,               // senza beats il proiettore legge la domanda
         votabile: !!ch.votabile,

@@ -155,6 +155,7 @@ function beatHTML(b) {
   if (typeof b === "string") return `<p class="beat">${b}</p>`;
   if (b.sig) return `<p class="signal">${b.sig}</p>`;
   if (b.counter) return `<div class="counter" data-to="${b.counter.to}" data-unit="${b.counter.unit || ""}">0<small>${b.counter.label}</small></div>`;
+  if (b.img) return `<figure class="cornice"><div class="barra"><i></i><i></i><i></i><span>${b.url || ""}</span></div><img src="${b.img}" alt="${b.url || ""}"></figure>`;
   return "";
 }
 function runCounters() {
@@ -181,8 +182,9 @@ let titleShown = false;
 // esempio, cresce al centro come "wheel" e torna titolo. È lo STESSO elemento
 // che scala → nessuno scambio, nessuno scatto di dimensioni.
 function playInterstitial(occhiello, titolo) {
-  if (!titolo) return Promise.resolve();
   const readout = $("iReadout");
+  // slide senza titolo: niente wheel, e niente titolo vecchio rimasto in alto
+  if (!titolo) { readout.style.opacity = 0; titleShown = false; return Promise.resolve(); }
   $("iOcchiello").textContent = occhiello || "";
   $("iTitolo").textContent = titolo;
   // stato TITOLO = wheel rimpicciolita in alto; stato WHEEL = scala 1 (nativa, nitida) al centro.
@@ -341,10 +343,18 @@ function renderBody(s) {
 }
 // La schermata finale: l'elenco degli esempi con quello che ha scelto il tavolo.
 function renderEnded(s) {
+  $("iReadout").style.opacity = 0;       // anche se si è chiuso a wheel ancora in corso
   $("aggregates").innerHTML = (s.aggregates || []).map(a => {
     const tot = Object.values(a.conteggi).reduce((x, y) => x + y, 0);
-    return `<div class="agg"><span>${esc(a.titolo)}</span><b>${esc(a.winnerLabel)}</b><span class="muted">${a.conteggi[a.winner]}/${tot}</span></div>`;
+    return `<div class="agg"><span class="tit">${esc(a.titolo)}</span><b>${esc(a.winnerLabel)}</b><span class="n">${a.conteggi[a.winner]}/${tot}</span></div>`;
   }).join("");
+  // il corpo più grande che fa stare tutto in uno schermo: si parte grande e si
+  // scende. main è alto almeno 100vh, quindi sfora solo se il contenuto trabocca.
+  const fondo = $("ended").querySelector("main");
+  for (let px = Math.min(64, Math.round(innerWidth * 0.034)); px >= 18; px--) {
+    $("aggregates").style.setProperty("--agg", px + "px");
+    if (fondo.getBoundingClientRect().bottom <= innerHeight + 1) break;
+  }
   if (G && !REDUCED) G.from("#aggregates .agg", { opacity: 0, x: 20, stagger: 0.08, duration: 0.45, ease: "power2.out" });
 }
 
@@ -443,7 +453,7 @@ function startTransition(s, reveal) {
   transitioning = true;
   clearOrbits();                         // i poli spariscono col capitolo: le particelle tornano libere
   if (G && !REDUCED) G.set("#col", { opacity: 0 });
-  playInterstitial(s.chapter.occhiello, s.chapter.titolo).then(() => {
+  playInterstitial(s.chapter.occhiello, s.chapter.senza_titolo ? null : s.chapter.titolo).then(() => {
     transitioning = false;
     // il regista è andato oltre durante la wheel (doppio Avanti, reset): si
     // rifà per il capitolo nuovo, o in alto resterebbe il titolo di quello vecchio
@@ -463,7 +473,8 @@ socket.on("main:sync", (s) => {
   $("game").classList.toggle("hidden", !inGame);
   $("ended").classList.toggle("hidden", s.phase !== "ended");
   $("lobbyCount").textContent = s.connected;
-  if (s.phase === "lobby") {
+  // anche il finale: il titolo dell'ultima domanda gli finirebbe sopra
+  if (s.phase === "lobby" || s.phase === "ended") {
     bodyIndex = -1; lastIndex = -1; titleShown = false;   // reset: la lobby non mostra nulla, la prossima wheel "nasce"
     // NESSUN interludio in lobby: la wheel nasce sul primo esempio.
     if (G && !REDUCED) G.set(["#iReadout", "#iBg"], { opacity: 0, clearProps: "transform" });
